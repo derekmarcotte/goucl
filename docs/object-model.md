@@ -926,8 +926,8 @@ Critical consequences:
 | `\f` (0x0c) | `\f` | +1 |
 | `\\` | `\\` | +1 |
 | `"` | `\"` | +1 |
-| `\0` | ` ` | +5 |
-| `\v` (0x0b) | `` (capital B) | +5 |
+| `\0` | `\u0000` | +5 |
+| `\v` (0x0b) | `\u000B` (capital B) | +5 |
 | space | unchanged | +0 |
 
 Everything else is copied verbatim (no `\uXXXX` for other control characters —
