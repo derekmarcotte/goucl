@@ -125,3 +125,41 @@ emitter did not produce, and always sets KEY_LOWERCASE, registers `ABI` =
 **Consequence:** a Go test that merely parses and emits once will not
 reproduce these bytes. The harness must be mirrored exactly. Details in the
 header comment of `tools/gen-goldens.sh`.
+
+## 7. libucl's msgpack encoder can emit documents its own decoder rejects
+
+Verified against the reference build (`UCL_PARSE_MSGPACK`):
+
+| bytes | meaning | libucl decode |
+|---|---|---|
+| `80` | empty map | rejected: "read assoc value when no container represented" |
+| `90` | empty array | rejected: same |
+| `81 a1 6b a0` | `{"k": ""}` — zero-length last value | rejected: "cannot insert object with no key" |
+| `81 a1 6b a1 76` | `{"k": "v"}` | accepted |
+
+Both are reachable from libucl's own encoder: an empty root is what empty
+input produces, and duplicate keys can *turn* a valid document into the
+zero-length-last-value shape, which is how differential fuzzing surfaced it.
+
+**Consequence:** decode → encode → decode is **not** a property this codec
+has, and no round-trip test may assume it. Byte identity for
+encode → decode → encode still holds and is tested; that is the property the
+C's own `test_msgpack.c` asserts, and it is the one we match.
+
+**Decision: replicate.** Encoding is byte-identical to the C, including the
+shapes the C then refuses to read back. Fixing the encoder would break the
+byte-identity contract that `test_msgpack.c` pins. The fuzz invariant is
+written as "never panic", not "always round-trips", for this reason.
+
+## 8. Container headers must come from contents, not the tracked length
+
+When decoding wire-level duplicate keys, the C inflates `obj->len` past the
+number of pairs it actually stores. Re-emitting from that tracked length
+declares more pairs than it writes — e.g. `82 a1 61 01`, a two-pair map
+carrying one pair — which is undecodable.
+
+**Decision: diverge, narrowly.** Container headers are computed from the real
+contents (`hash.Len()`, the non-nil array element count). Trees built through
+the object API are unaffected, so byte identity is preserved everywhere it is
+observable; only the C's self-inconsistent case differs, and there the C's
+output is unreadable by any decoder including its own.
