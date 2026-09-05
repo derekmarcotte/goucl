@@ -83,3 +83,84 @@ did not own, the compat layer defines `CompatObject`, `CompatObjectIter` and
 `compat.go` lives in package `goucl`. No frozen file needed changing.
 
 To retire the `Compat` prefix later, those four names are what must move.
+
+## What goucl must therefore export
+
+Method names on `*Object`, exactly:
+
+    Close() error        Emit(Emitter) (string, error)   Delete(string)
+    Get(string) *Object  Iterate(bool) *ObjectIter       Key() string
+    Len() uint           Ref() error                     Type() ObjectType
+    ToBool() bool        ToInt() int64                   ToFloat() float64
+    ToString() string
+
+`*ObjectIter`: `Close()` — **no return value**, unlike `Object.Close() error`.
+That asymmetry is part of the call-site contract; preserve it.
+
+`*Parser`: `AddString(string) error`, `AddFile(string) error`, `Close()`,
+`Object() *Object`, `RegisterMacro(string, MacroFunc)`.
+Package level: `ParseString(string) (*Object, error)`, `NewParser(ParserFlag) *Parser`.
+
+Constant *values* must match the C enums, which `types.go` already pins:
+`ObjectType` follows `ucl_type_t`, `Emitter` follows `ucl_emitter_t`.
+
+## Notes for whoever implements this
+
+* `(*Object).Emit` is deliberately unclaimed. The emitter package exposes
+  `EmitText*`; the compat `Emit` is the dispatcher that routes the four text
+  formats there and `EmitMsgPack` to the msgpack encoder. Per `compat.md` §2 it
+  must **never surface an error**, so swallow `ErrEmitFormat` and return
+  `("", nil)`.
+* `Ref()`/`Close()` exist only to manage C memory and become no-ops returning
+  `nil` — but `Ref` on an object flagged `FlagEphemeral` still deep-copies
+  (see `object-model.md` §7.4). Check whether any go-libucl test observes this.
+* `Len()` has a quirk to preserve: for an object with a non-nil `Next`
+  (implicit array) it counts by iteration rather than reading the length field.
+* Aliases mean `goucl` owns these names. Keep the C-mirror API (`ToStringSafe`,
+  `LookupPath`, ...) alongside them; the two sets coexist.
+
+## Branch mechanics
+
+In `../go-libucl` (a git repo at `f9d0e55`):
+
+1. `git switch -c pure-go`
+2. Delete the cgo files: `parser.go`, `object.go`, `libucl.go`, `go-libucl.h`.
+3. Keep `decoder.go`, `decoder_test.go`, `object_test.go`, `parser_test.go`
+   **unmodified**.
+4. Add `compat.go` with the defined types and forwarders above.
+5. Add `go.mod`:
+
+   ```
+   module github.com/mitchellh/go-libucl
+   go 1.21
+   require example.com/goucl v0.0.0
+   replace example.com/goucl => ../goucl
+   ```
+
+6. `go test ./...` — mitchellh's own suite, unmodified, against pure Go.
+
+Flag any test that pins C-specific behaviour (pointer identity, use-after-free,
+refcounting) rather than semantics; those are the legitimate exceptions.
+
+## Outcome
+
+Built on branch `pure-go` of `../go-libucl` (commit `6ebd62b`).
+
+**39 of 39 of mitchellh's tests pass, with their four files byte-identical to
+`f9d0e55`** — verified with `git diff f9d0e55 -- decoder.go decoder_test.go
+object_test.go parser_test.go`, which is empty. The package also builds under
+`CGO_ENABLED=0`, which is the point of the exercise.
+
+Two things left deliberately untouched, both pre-existing at `f9d0e55`:
+
+* `TestObjectDecode_structKeys` flakes roughly one run in eight.
+  `decoder.go:287` builds a `map[*reflect.StructField]reflect.Value` and
+  appends `decodedFields` while ranging it, so the order is randomised while
+  the test asserts `["Foo","Bar"]`. It is mitchellh's bug and would flake
+  identically against the cgo binding. Reproduce with
+  `go test -run TestObjectDecode_structKeys -count=30`.
+* `go vet` reports `decoder.go:41:2: unreachable code`. Not in the subset
+  `go test` runs, so the suite is unaffected. Nothing is reported against
+  `compat.go`.
+
+`Makefile`, `.travis.yml` and `README.md` still describe the cgo build.
