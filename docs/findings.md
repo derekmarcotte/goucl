@@ -192,3 +192,48 @@ Truncated escapes now take the C's own short-escape path.
 
 Found by `FuzzParseString`, which reached it in seconds. Worth reporting
 upstream as a correctness bug; it is not a crash there.
+
+## 10. Correction: two of the three "out-of-bounds reads" are not out of bounds
+
+`NOTES-parser.md` records three places where the C reads outside its buffer and
+this port bounds instead. Investigating them against the reference build with
+AddressSanitizer, only one survives.
+
+**Not a defect — `p[-1]` in `ucl_skip_comments` and `ucl_parse_macro_arguments`.**
+Both were described as reading before the buffer on the first byte. Neither
+can. In `ucl_skip_comments` the lookbehind sits after two `ucl_chunk_skipc`
+calls that consumed `/*`, so `p-1` is at worst the `*`. In
+`ucl_parse_macro_arguments` the branch is only reached in state 1, which
+requires an opening quote to have been consumed. Our own note says as much --
+"which is what the C reads in practice (the `/` of `/*`, or the opening
+quote)" -- i.e. in bounds. The Go code is defensive, not compensating.
+
+**Not demonstrated — the backwards space strip in `ucl_parse_value`.** The scan
+has no explicit lower bound, but `ucl_parse_value` skips leading whitespace
+before recording the atom start, so the scan meets a non-whitespace byte and
+stops. No input was found that walks it past the buffer, including 3,000,000
+mutated fixtures under ASAN with each chunk in an exactly-sized allocation.
+
+**Not demonstrated — `*out_len = dstlen` in `ucl_check_variable_safe`.** It
+assigns where the registered-variable path accumulates with `+=`, which looks
+like an under-count of the destination size, but a variable handler returning
+replacements far longer than the text they replace did not overflow anything
+under ASAN.
+
+**Real — the truncated `\u` escape (finding #9).** Confirmed by reading the
+code and by differing output. Fixed upstream on branch
+`fix-truncated-unicode-escape` with `tests/basic/utf_escape_trunc.in`.
+
+The bounding in the Go port stays regardless: it costs nothing, and in a
+bounds-checked language the same arithmetic is a panic rather than a wrong
+byte. But only one of these is worth an upstream report, and claiming three
+would have been wrong.
+
+### Unresolved: a possible leak of saved comments
+
+An ASAN run with LeakSanitizer reported `ucl_save_comment` allocations
+surviving `ucl_parser_free` on malformed input, roughly one run in twenty.
+`ucl_parser_free` does unref `parser->comments`, and the reported input did not
+reproduce in isolation, so this is **not confirmed** and may be an artefact of
+the harness. Recorded so it is not lost; needs a minimal reproducer before it
+is worth reporting.
