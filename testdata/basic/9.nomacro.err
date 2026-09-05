@@ -1,0 +1,1 @@
+Error occurred (phase 1): error while parsing testdata/basic/9.in: line: 1, column: 0 - 'key must begin with a letter', character: '.'

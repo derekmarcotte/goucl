@@ -1,0 +1,42 @@
+Error occurred (phase 2): error while parsing <unknown>: line: 9, column: 4 - 'string value must not be empty', character: '#'
+key1 = "value";
+#key = value
+#.include "$CURDIR/9.inc"
+key1 = "value";
+key1 = "value";
+key = "value";
+prefix1 [
+    #.try_include "$CURDIR/9.incorrect.inc"
+    # 9.incorrect.inc contains '{}}'
+    #key = value;
+    {
+        key = "value";
+    }
+    {
+        key1 = "value";
+    }
+]
+array [
+    10,
+    {
+        key1 = "value";
+    }
+]
+array1 [
+    10,
+]
+prefix {
+    key1 = "value";
+    key1 = "value";
+}
+prefix2 [
+    {
+        key1 = "value";
+    }
+]
+prefix3 [
+    {
+        key1 = "value";
+    }
+]
+
