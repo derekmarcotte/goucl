@@ -11,22 +11,16 @@ import (
 
 // Tests for the four text emitters.
 //
-// TODO(parser): most of testdata/basic/*.{config,json,compact,yaml}.golden
-// cannot be used yet. Per docs/findings.md #6 those goldens are
-// emit(parse(emit(parse(input)))) plus one trailing newline added by the C
-// harness, so reproducing them needs a parser. Once one lands, add a
-// table-driven test over testdata/basic/<n>.in for n in 1..26 comparing
-// against .config.golden, .json.golden, .compact.golden and .yaml.golden, and
-// against .comments.golden for the SAVE_COMMENTS path (which additionally
-// needs the parser to reproduce the block-comment off-by-one capture described
-// in docs/emitter.md section 5). The fixtures that most directly exercise this
-// file are: 2 (nesting and floats), 8 (duplicate keys, empty containers,
-// six-decimal floats), 14 (empty object), escapes (the byte table), squote
-// (single-quote writer and its fallback) and heredoc_eod (the multiline
-// fallback).
+// The emitters are also exercised end-to-end by TestBasicGoldens in
+// parser_test.go, which runs every fixture in testdata/basic through all six
+// modes -- config, json, compact, yaml, comments and nomacro -- against output
+// captured from the C library. Those goldens need a parser, because each is
+// emit(parse(emit(parse(input)))) plus the trailing newline the C harness adds
+// (docs/findings.md #6).
 //
-// Reachable without a parser, and covered below: testdata/generate.res and
-// testdata/streamline.res, both of which the C builds programmatically.
+// The tests below cover what that cannot: hand-built object trees exercising
+// individual emitter rules, plus testdata/generate.res and
+// testdata/streamline.res, which the C builds programmatically.
 
 // --- helpers ---------------------------------------------------------------
 //
