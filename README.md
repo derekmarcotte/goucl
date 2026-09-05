@@ -1,6 +1,6 @@
-# ucl — pure-Go UCL (Universal Configuration Language)
+# goucl — pure-Go UCL (Universal Configuration Language)
 
-A pure-Go implementation of [libucl](https://github.com/vstakhov/libucl) v0.9.4,
+Package `goucl` is a pure-Go implementation of [libucl](https://github.com/vstakhov/libucl) v0.9.4,
 intended as a drop-in replacement for the cgo binding
 [`github.com/mitchellh/go-libucl`](https://github.com/mitchellh/go-libucl) — so
 dependents can drop the C dependency with an import-path swap.

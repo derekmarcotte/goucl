@@ -1,3 +1,3 @@
-module example.com/ucl
+module example.com/goucl
 
 go 1.21
