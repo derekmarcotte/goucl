@@ -1,6 +1,3 @@
-
-[`../DESIGN.md`](../DESIGN.md) sits outside this hierarchy on purpose: it is a
-forward-looking proposal for an idiomatic API, not a record of what exists.
 # Documentation
 
 Three kinds of document, kept apart because they have different authority and
@@ -19,6 +16,10 @@ records a defect in the C and an explicit *replicate* or *diverge* decision.
 The rule the entries follow: reproduce upstream bugs bug-for-bug, because
 callers and goldens depend on them, **except** where a bug produces a wrong
 answer or a crash. Four have been fixed here and reported upstream.
+
+[`../DESIGN.md`](../DESIGN.md) sits outside this hierarchy on purpose: it is a
+forward-looking proposal for an idiomatic API, not a record of what exists, so
+it carries no authority over the code.
 
 ## 2. Implementation notes — how this port is built
 
