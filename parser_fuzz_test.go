@@ -13,7 +13,7 @@ import (
 // The parser is the component most exposed to untrusted input -- it is the one
 // that reads config files -- and it was the only decoder without a fuzz target;
 // msgpack and csexp already had one. It is also the area where the C has known
-// out-of-bounds reads on malformed input (see NOTES-parser.md), which this port
+// out-of-bounds reads on malformed input (see docs/notes/parser.md), which this port
 // bounds rather than reproduces. That divergence is only worth anything if it
 // actually holds, which is what this exercises.
 //

@@ -5,7 +5,8 @@ intended as a drop-in replacement for the cgo binding
 [`github.com/mitchellh/go-libucl`](https://github.com/mitchellh/go-libucl) — so
 dependents can drop the C dependency with an import-path swap.
 
-Status: **in progress.** See `docs/` for the ported-behaviour specs.
+Status: **feature complete.** See [`docs/`](docs/) for the decision record,
+implementation notes and extracted C behaviour.
 
 ## Scope
 

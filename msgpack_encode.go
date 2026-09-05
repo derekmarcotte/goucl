@@ -249,7 +249,7 @@ func (e *msgpackEmitter) writeNull() {
 // one-byte fixstr form for lengths up to 31.
 //
 // The length is len(s) rather than the object's tracked length, matching how
-// the text emitters read string values (see NOTES-emitter.md section 3); the C
+// the text emitters read string values (see docs/notes/emitter.md section 3); the C
 // uses obj->len, which for msgpack is the same number for every string the
 // object API can build.
 func (e *msgpackEmitter) writeString(s []byte) {

@@ -15,7 +15,7 @@ import (
 // TO_BE16/32/64 and FROM_BE16/32/64 because it memcpy's native-order structs;
 // here encoding/binary.BigEndian does the same work directly.
 //
-// See docs/msgpack.md for the byte-level format table and the behaviours this
+// See docs/reference/msgpack.md for the byte-level format table and the behaviours this
 // port reproduces deliberately.
 
 // ErrMsgPack is wrapped by every error the msgpack decoder produces, so a

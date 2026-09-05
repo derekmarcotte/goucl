@@ -10,7 +10,7 @@ import (
 // ucl_maybe_parse_boolean (src/ucl_internal.h).
 //
 // These helpers are deliberately literal transliterations of the C, quirks
-// included: see docs/object-model.md section 5.
+// included: see docs/reference/object-model.md section 5.
 
 // errNotNumber mirrors the C's EINVAL return: the input is not a number and
 // the caller should leave the value as a string.
@@ -21,7 +21,7 @@ var errNotNumber = errors.New("goucl: not a number")
 var errNumberRange = errors.New("goucl: numeric value out of range")
 
 // Character classes decoded from ucl_chartable.h. Verified byte-for-byte
-// against the compiled table; see docs/object-model.md section 5.5.
+// against the compiled table; see docs/reference/object-model.md section 5.5.
 
 // isAtomEnd reports whether c ends a value atom (UCL_CHARACTER_VALUE_END).
 func isAtomEnd(c byte) bool {

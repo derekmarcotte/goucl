@@ -2,7 +2,7 @@ package goucl
 
 // The object API: construction, keys, lookup, mutation, arrays, iteration and
 // copying. Mirrors the ucl_object_* family in src/ucl_util.c one-to-one; see
-// docs/object-model.md section 4.
+// docs/reference/object-model.md section 4.
 //
 // Deliberate faithfulness notes appear at each site where the C does something
 // surprising. Where the C dereferences a NULL pointer (it is inconsistent
@@ -178,7 +178,7 @@ func FromLString(b []byte) *Object { return FromStringCommon(b, StringRaw) }
 
 // FromStringCommon builds a string object from b, optionally trimming,
 // escaping, and reclassifying it as a boolean or number. It mirrors
-// ucl_object_fromstring_common; see docs/object-model.md section 5.1.
+// ucl_object_fromstring_common; see docs/reference/object-model.md section 5.1.
 //
 // Three consequences of the C worth remembering:
 //

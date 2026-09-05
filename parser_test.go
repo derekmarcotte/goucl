@@ -9,7 +9,7 @@ package goucl
 //
 // One golden is ours rather than the C's: 9.comments.golden replaced
 // 9.comments.err, which recorded a reparse failure caused only by the array
-// comment bug this port deliberately does not reproduce. See NOTES-parser.md
+// comment bug this port deliberately does not reproduce. See docs/notes/parser.md
 // and TestParserArrayLeadingComment.
 
 import (

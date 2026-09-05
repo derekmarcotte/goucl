@@ -10,7 +10,7 @@ was found in the object API.
 
 `types.go` defines `EmitMsgPack` (an `Emitter`) and `ParseMsgPack` (a
 `ParseType`), so neither name is available for a function -- the same collision
-`NOTES-emitter.md` §1 hit. The entry points are therefore:
+`docs/notes/emitter.md` §1 hit. The entry points are therefore:
 
 ```go
 func DecodeMsgPack(data []byte) (*Object, error)                  // ucl_parse_msgpack
@@ -22,7 +22,7 @@ func EncodeMsgPackTo(w io.Writer, obj *Object) error
 **What the dispatcher should call.** A general `EmitObject`/`(*Object).Emit`
 should route `EmitMsgPack` to `EncodeMsgPackTo` (or `EncodeMsgPack` for the
 `[]byte`-returning shape) and the four text formats to `EmitTextFull`, exactly
-as `NOTES-emitter.md` §1 describes. A general parser entry point should route
+as `docs/notes/emitter.md` §1 describes. A general parser entry point should route
 `ParseMsgPack` to `DecodeMsgPackFull(data, priority)`; note it needs the whole
 chunk up front, since libucl's msgpack decoder is not incremental either.
 
@@ -34,7 +34,7 @@ the parser layer ever needs the other three strategies here, the hook is
 
 ## 2. Deliberate divergence: ext/fixext is a hard decode error
 
-Taken on the recommendation of `docs/msgpack.md` §4. The C skips an ext value's
+Taken on the recommendation of `docs/reference/msgpack.md` §4. The C skips an ext value's
 bytes, produces no object, and then neither inserts anything nor decrements the
 enclosing container's expected-element count.
 
@@ -74,8 +74,7 @@ that class.
 
 ## 4. New upstream finding: an empty root emits a document libucl cannot reparse
 
-Candidate entry for `docs/findings.md` (I do not own that file, so it is
-recorded here instead):
+Recorded as `docs/findings.md` #7. The detail behind that entry:
 
 > **msgpack emission of an empty root cannot be reparsed.** Emitting an object
 > or array with no members produces a single byte, `0x80` or `0x90`. Feeding
@@ -108,7 +107,7 @@ re-decode which *does* succeed re-encodes identically.
 
 ## 5. Strings are copied, not aliased
 
-`docs/msgpack.md` §7 leaves this open. The decoder copies (via `FromLString`),
+`docs/reference/msgpack.md` §7 leaves this open. The decoder copies (via `FromLString`),
 matching the C's default non-`UCL_PARSER_ZEROCOPY` behaviour, so the returned
 tree neither aliases nor pins the caller's buffer.
 `TestMsgPackDecodeCopiesInput` pins it.

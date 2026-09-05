@@ -17,17 +17,17 @@ func EmitTextFull(w io.Writer, obj *Object, format Emitter, comments EmitComment
                                                                    // ucl_object_emit_full
 ```
 
-They are deliberately scoped to *text* so that the name `EmitObject` (or a
-`(*Object) Emit` method, which `docs/compat.md` requires for the
-`go-libucl`-compatible layer) stays free for whoever assembles the full
-dispatcher. That dispatcher should route the four text formats to
-`EmitTextFull` and `EmitMsgPack` to the msgpack emitter; `EmitText*` returns
-`ErrEmitFormat` for anything it does not handle.
+They are deliberately scoped to *text*, which left the name `(*Object) Emit`
+free for the compatibility layer that `docs/reference/compat.md` requires.
+That dispatcher now exists as `(*CompatObject).Emit`: it routes the four text
+formats to `EmitTextFull` and `EmitMsgPack` to `EncodeMsgPackTo`, and
+`EmitText*` returns `ErrEmitFormat` for anything it does not handle.
 
-Per `docs/compat.md` §2 the compatibility `Emit` must never surface an error,
-so the wrapper should swallow `ErrEmitFormat` and return `("", nil)`.
+Per `docs/reference/compat.md` §2 that `Emit` must never surface an error, so
+it swallows `ErrEmitFormat` and returns `("", nil)` -- matching the cgo
+binding, which returned `("", nil)` when `ucl_object_emit` gave back NULL.
 
-## 2. `docs/emitter.md` §2.2 is incomplete about YAML separators
+## 2. `docs/reference/emitter.md` §2.2 is incomplete about YAML separators
 
 §2.2 says the leading separator for JSON/YAML is `,` / `,\n` / (YAML at
 indent 0) a bare `\n`. That holds for `ucl_emitter_common_elt`,
@@ -75,7 +75,7 @@ is the reachable behaviour. Confirmed against the reference build.
 ## 5. Out-of-int32 doubles
 
 `emitDouble` pins the out-of-range case to the six-decimal branch rather than
-emulating x86-64's `cvttsd2si` saturation, exactly as `docs/emitter.md` §3
+emulating x86-64's `cvttsd2si` saturation, exactly as `docs/reference/emitter.md` §3
 recommends. The two are provably equivalent for every `float64`: the gap
 between adjacent doubles near ±2^31 is ~4.8e-7, which is larger than the
 1e-7 closeness delta, so no out-of-range value can reach branch B either way.

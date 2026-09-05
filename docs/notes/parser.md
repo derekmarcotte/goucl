@@ -5,7 +5,7 @@ duplicate handling), `parser_macro.go` (macros, includes, variable expansion),
 `parser_test.go` (the `testdata/basic` golden harness) and
 `parser_unit_test.go` (everything the goldens cannot reach).
 
-Spec: `docs/parser.md`. Upstream quirks: `docs/findings.md`.
+Spec: `docs/reference/parser.md`. Upstream quirks: `docs/findings.md`.
 
 ## Status
 
@@ -54,24 +54,26 @@ Consequences:
   body is byte-identical to the emitted text the old `.err` file contained; only
   the reparse outcome changed.
 
-### 2. Out-of-bounds reads are bounded, not reproduced
+### 2. Reads past the buffer are bounded, not reproduced
 
-Three places where the C reads outside its buffer are bounded here, per
-`docs/parser.md` §12.2. On any input the C does not already corrupt, the two
-agree.
+`docs/reference/parser.md` §12.2 listed three places where the C reads outside its
+buffer, and this port bounds all three. A later pass against the reference
+build under AddressSanitizer found that **only one of them is real**; see
+`docs/findings.md` #10 for the evidence. The bounding stays regardless, because
+it costs nothing and the same arithmetic that yields a stray byte in C is a
+panic in Go.
 
-* The trailing-space strip in `ucl_parse_value` scans backwards with no lower
-  bound; bounded at the atom start.
-* `p[-1] != '\\'` in `ucl_skip_comments` and `ucl_parse_macro_arguments` reads
-  before the buffer on the first byte; treated as "not a backslash", which is
-  what the C reads in practice (the `/` of `/*`, or the opening quote).
-* `ucl_expand_single_variable` can leave the cursor past the end of the source
-  when a variable handler returns a replacement longer than the text it
-  replaced (see the `*out_len = dstlen` assignment bug in
-  `ucl_check_variable_safe`); the C's `p != end` loop condition then reads one
-  byte past the buffer. The Go loop uses `<`. The resulting value is truncated
-  either way; only the final byte differs, and it is uninitialised heap in C.
-
+* **Real.** A truncated `\u` escape read a fourth hex digit from past the end
+  of the value. In Go that is an index out of range, so it was a crash on any
+  input carrying one (`docs/findings.md` #9). Fixed here and upstream.
+* **Not a defect.** `p[-1] != '\\'` in `ucl_skip_comments` and
+  `ucl_parse_macro_arguments` cannot read before the buffer: both sites are
+  reached only after the bytes they look back at have been consumed. The Go
+  code is defensive, not compensating.
+* **Not demonstrated.** The backwards space strip in `ucl_parse_value` has no
+  explicit lower bound, and `*out_len = dstlen` in `ucl_check_variable_safe`
+  assigns where its sibling accumulates. Neither could be triggered, including
+  3,000,000 mutated fixtures under ASAN with each chunk exactly sized.
 One further C artefact is not reproducible in Go and is called out here rather
 than worked around: under `UCL_PARSER_ZEROCOPY`, `UCL_DUPLICATE_ERROR`'s
 message prints `nobj->key` with `%s` even though a zero-copy key is not
@@ -97,7 +99,7 @@ Kept because output depends on them; each is commented at its site.
   `next_key == true` and gets nested. Found by differential fuzzing; hoisting
   them out of the loop is what makes the port agree.
 * uthash returns the *most recently* added entry for a duplicate key, so
-  re-registering a built-in macro name shadows it. `docs/parser.md` §7.1 says
+  re-registering a built-in macro name shadows it. `docs/reference/parser.md` §7.1 says
   the opposite; the C was checked and the doc is wrong.
 * `ucl_parser_append_elt` does not increment the container length on the
   `NO_IMPLICIT_ARRAYS` path, and the wrapper array aliases the original key.
@@ -105,18 +107,15 @@ Kept because output depends on them; each is commented at its site.
   recording an error, silently truncating the rest of the chunk. `.include`
   with `try=true` is different: it clears `must_exist` but not `soft_fail`, so
   it is a genuine no-op. Both are pinned in `TestParserIncludes`.
-* `UCL_PARSER_DISABLE_MACRO` does not skip macros; a leading `.` is then lexed
-  as a key and rejected (`docs/findings.md` #2). The
-  `ucl_skip_macro_as_comment` path is ported anyway but is unreachable, as
-  upstream.
+* `UCL_PARSER_DISABLE_MACRO` skips macros, which is what it is documented to
+  do. Released libucl rejects them instead, because it never enters the state
+  holding its own skip path; this port takes the fix and so does upstream
+  branch `fix-disable-macro` (`docs/findings.md` #2).
 
 ## Not implemented
 
-* **csexp.** `ParseCSexp` records `csexp support is disabled` and fails.
-  `ucl_parse_csexp` has no Go port yet; wiring it up is one case in
-  `AddChunkFull`.
 * **URL includes.** `.include(url=true)` returns `URL support is disabled`,
-  matching a libucl built without libfetch/libcurl. `docs/parser.md` §12.8
+  matching a libucl built without libfetch/libcurl. `docs/reference/parser.md` §12.8
   suggests an opt-in `Parser.HTTPClient`; that is additive when wanted.
 * **Signature checking.** `PubkeyAdd` fails with `cannot check signatures
   without openssl` and `sign=true` is a no-op, matching a build without

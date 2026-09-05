@@ -6,13 +6,13 @@ package goucl
 // diffed side by side; each Go function names the C function it mirrors.
 //
 // libucl's validator is not a conforming draft-4 implementation and this port
-// does not try to make it one -- see docs/schema.md for the catalogue of
+// does not try to make it one -- see docs/reference/schema.md for the catalogue of
 // deliberate deviations (no boolean schemas, $ref is additive rather than
 // exclusive, no RFC 6901 ~0/~1 unescaping, "number" accepts integers and
 // times, malformed constraint values are silently ignored rather than
 // rejected). Where this port departs from the C as well, the departure is a
 // C defect that the upstream test corpus does not reach; every one of them is
-// marked "Divergence" below and listed in NOTES-schema.md.
+// marked "Divergence" below and listed in docs/notes/schema.md.
 
 import (
 	"fmt"
@@ -101,7 +101,7 @@ const schemaErrMsgSize = 128
 // maxSchemaDepth bounds the recursion. This has no counterpart in
 // ucl_schema.c, which recurses without any limit and will overflow the stack
 // on a self-referential schema such as {"$ref": "#"} at the top level (see
-// docs/schema.md section 4, "Cycles and recursion depth"). The guard is a
+// docs/reference/schema.md section 4, "Cycles and recursion depth"). The guard is a
 // deliberate addition; it reports SchemaInternalError rather than crashing,
 // and is set far above anything a real schema reaches.
 const maxSchemaDepth = 1024
@@ -183,7 +183,7 @@ func ValidateRootExtFetch(schema, obj, root, extRefs *Object, fetcher RefFetcher
 	}
 	// The C leaves err->msg and err->obj holding whatever the last failed
 	// sub-attempt wrote even when the overall result is success; returning a
-	// fresh error only on failure removes that footgun (docs/schema.md 5).
+	// fresh error only on failure removes that footgun (docs/reference/schema.md 5).
 	e := *ctx.err
 	return false, &e
 }
@@ -219,7 +219,7 @@ func schemaKey(o *Object) string { return string(cStr(o.Key())) }
 //
 // tryArray is true at every "validate this value against this schema" call
 // site in the C; it enables the UCL-only implicit-array handling described in
-// docs/schema.md section 2.
+// docs/reference/schema.md section 2.
 func (c *schemaCtx) validate(schema, obj *Object, tryArray bool) bool {
 	if schema.Type() != TypeObject {
 		c.errorf(SchemaInvalidSchema, schema, "schema is %s instead of object",

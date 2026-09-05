@@ -4,7 +4,7 @@
 ports `tests/test_schema.c` + `tests/schema.test`; `schema_unit_test.go` covers
 what the upstream corpus never reaches.
 
-Spec: `docs/schema.md`. Everything that document calls out as a deliberate
+Spec: `docs/reference/schema.md`. Everything that document calls out as a deliberate
 libucl-vs-draft-4 deviation is reproduced exactly. This file records only the
 places where the port departs from **the C**, plus what is left unimplemented.
 
@@ -71,7 +71,7 @@ optimisation.
 
 ## Departures from the C
 
-Policy: reproduce everything `docs/schema.md` documents. For C defects that
+Policy: reproduce everything `docs/reference/schema.md` documents. For C defects that
 document does *not* mention — found by reading the source — reproduce the ones
 that are inert, and fix the ones that produce wrong validation results for
 realistic schemas. Every fix below is invisible to the upstream corpus (checked
@@ -129,7 +129,7 @@ case by case) and has a regression test naming it.
 7. **Each additional item is validated once.** The C's `additionalItems` loop
    uses a post-increment inside its own re-lookup and so validates the first
    additional item twice. Validation has no side effects; observably identical.
-   Already sanctioned by `docs/schema.md` §2.
+   Already sanctioned by `docs/reference/schema.md` §2.
 
 8. **`uniqueItems` uses a pairwise scan, not a BST.** The C builds a binary
    search tree keyed by `ucl_object_compare`. That comparator is not a total
@@ -145,7 +145,7 @@ case by case) and has a regression test naming it.
     successful `anyOf`/`not`, leaving `err->msg`/`err->obj` holding stale bytes
     from a failed sub-attempt. This API returns `(true, nil)` on success, which
     removes the footgun without changing any boolean outcome
-    (`docs/schema.md` §5 endorses this). Test:
+    (`docs/reference/schema.md` §5 endorses this). Test:
     `TestSchemaSuccessReturnsNoError`.
 
 Everything else is bug-for-bug, including: the `maxValues` off-by-one; the

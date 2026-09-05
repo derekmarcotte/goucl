@@ -186,7 +186,7 @@ func (p *Parser) parseMacroArguments(ch *chunk) *Object {
 
 // skipMacroAsComment is ucl_skip_macro_as_comment: swallow a macro line as if
 // it were a comment. It is only reachable with ParserDisableMacro set, and in
-// practice not even then -- see docs/parser.md section 7.6.
+// practice not even then -- see docs/reference/parser.md section 7.6.
 func (p *Parser) skipMacroAsComment(ch *chunk) bool {
 	const (
 		skipStart = iota

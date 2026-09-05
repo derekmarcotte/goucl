@@ -12,7 +12,7 @@ C source and a golden appear to disagree, **the golden wins** — this document
 says so explicitly at each such point.
 
 The msgpack emitter (`ucl_emit_msgpack_*`, `ucl_emitter_print_*_msgpack`) is
-out of scope; it is covered by `docs/msgpack.md`. §7 says only where it plugs
+out of scope; it is covered by `docs/reference/msgpack.md`. §7 says only where it plugs
 into the vtable described here.
 
 ---
@@ -813,7 +813,7 @@ JSON_COMPACT, YAML). The `UCL_STRING` case in `ucl_emitter_common_elt` never
 inspects `UCL_OBJECT_BINARY` — that flag is consulted **only** by the
 msgpack emitter (`ucl_emit_msgpack_elt`'s `UCL_STRING` case, which switches
 between `ucl_emitter_print_binary_string_msgpack` and
-`ucl_emitter_print_string_msgpack`; out of scope, see `docs/msgpack.md`). A
+`ucl_emitter_print_string_msgpack`; out of scope, see `docs/reference/msgpack.md`). A
 `UCL_STRING` object carrying raw binary bytes and the `UCL_OBJECT_BINARY`
 flag, if emitted as CONFIG/JSON/YAML, goes through the ordinary escaping
 rules in §4.1–4.4 exactly like text — including `\uFFFD` mangling for any
@@ -826,7 +826,7 @@ bytes, valid UTF-8 or not.
 
 **Attachment** (which comment string belongs to which object, and whether it
 counts as "before" or "after" that object) is entirely parser-side machinery,
-already specified in `docs/parser.md` §10 — read that first. This section
+already specified in `docs/reference/parser.md` §10 — read that first. This section
 covers only how the **emitter** consumes what the parser produced.
 
 `ctx->comments`, when non-nil, is a `UCL_OBJECT` keyed by the raw bytes of a
@@ -872,7 +872,7 @@ Two asymmetries to get exactly right:
 
 **The blank-line gotcha** (do not skip this): a `/* ... */` block comment is
 saved by the parser with length `p - beg + 1` — **one byte past** the
-closing `/` of `*/` (see `docs/parser.md` §3.2/§10; this is essentially an
+closing `/` of `*/` (see `docs/reference/parser.md` §3.2/§10; this is essentially an
 off-by-one in the C parser, kept for fidelity). In practice that extra byte
 is whatever character immediately follows the comment in the source — nearly
 always the line's own `\n`. So a block comment's *stored* text frequently
@@ -919,9 +919,9 @@ Worked fragment (from `testdata/basic/comments.comments.golden`, annotated):
 (The remaining reconstruction of exactly which source fragment attaches to
 which object, and why `# quoted` — textually trailing on the source's
 `key = quotes # quoted` line — ends up rendered as a *leading* comment on
-that same key, is parser attachment-order behavior; see `docs/parser.md` §10.)
+that same key, is parser attachment-order behavior; see `docs/reference/parser.md` §10.)
 
-Since `docs/parser.md` documents this fixture's C test methodology (recall
+Since `docs/reference/parser.md` documents this fixture's C test methodology (recall
 §2.6: `test_basic.c`'s `-C` mode round-trips parse → emit-with-comments →
 reparse → emit-with-comments *again*), byte-exact validation against
 `comments.comments.golden` requires reproducing that same double pass, not a
@@ -1076,7 +1076,7 @@ helpers (declared in `ucl.h` around line 553–614, defined in
 `src/ucl_msgpack.c`) that write raw msgpack bytes directly via `ctx->func`,
 with no notion of indentation, key/value separators, or string escaping as
 described here. `_end_object`/`_end_array` for msgpack are no-ops (msgpack
-containers are length-prefixed up front, not delimited). See `docs/msgpack.md`
+containers are length-prefixed up front, not delimited). See `docs/reference/msgpack.md`
 for the actual wire format. The only shared surface is `ucl_emitter_context`/
 `ucl_emitter_functions` (the sink) and the outer entry points in §1.3
 (`ucl_object_emit`, `ucl_object_emit_full`) — `emit_type == UCL_EMIT_MSGPACK`
@@ -1166,7 +1166,7 @@ reason to distinguish buffered-stdio from a raw fd the way C does).
 
 **Duplicate-key chains.** The object model needs a `Next *Object` field
 (§1.4) distinct from an array's element slice, exactly mirroring
-`ucl_object_t.next`. If `docs/object-model.md` already specifies this field
+`ucl_object_t.next`. If `docs/reference/object-model.md` already specifies this field
 for other reasons (parser-side duplicate-key handling), the emitter can
 reuse it as-is — this document does not need its own copy of that field,
 only to flag that the emitter's array-walk (`ucl_emitter_common_start_array`)
@@ -1177,4 +1177,4 @@ per §1.4.
 keyed by raw pointer bytes) has no clean Go equivalent and needs none — a
 plain `map[*Object]*Object` (or `map[*Object][]string]`, since all a comment
 chain node ever holds is text) does the same job with less indirection; see
-§5 and `docs/parser.md` §10 for the map's producer side.
+§5 and `docs/reference/parser.md` §10 for the map's producer side.

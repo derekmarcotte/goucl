@@ -8,7 +8,7 @@ import (
 
 // Value conversion, comparison and sorting. Mirrors the ucl_object_to* family,
 // ucl_object_compare, ucl_object_array_sort and ucl_object_sort_keys; see
-// docs/object-model.md section 6.
+// docs/reference/object-model.md section 6.
 //
 // The conversions are deliberately narrow, exactly as in the C: there is no
 // implicit string-to-number or number-to-string conversion anywhere in this

@@ -9,7 +9,7 @@ import (
 // The number grammar is the single most quirk-dense part of libucl, and the
 // quirks are load-bearing: "10m" is ten million, not ten minutes, and a
 // malformed number silently stays a string. Every row here is derived from
-// docs/object-model.md section 5.3-5.4 and checked against src/ucl_parser.c.
+// docs/reference/object-model.md section 5.3-5.4 and checked against src/ucl_parser.c.
 func TestMaybeParseNumber(t *testing.T) {
 	const (
 		dbl   = true

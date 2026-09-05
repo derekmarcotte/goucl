@@ -527,7 +527,7 @@ func TestEmitConfigSquotedString(t *testing.T) {
 
 // --- whole-document shapes -------------------------------------------------
 
-// The worked example from docs/emitter.md section 2.5, in all four formats.
+// The worked example from docs/reference/emitter.md section 2.5, in all four formats.
 func TestEmitWorkedExample(t *testing.T) {
 	root := emitTestObject("",
 		emitTestObject("section1", emitTestStr("param1", "value")),

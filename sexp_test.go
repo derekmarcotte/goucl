@@ -7,7 +7,7 @@ import (
 )
 
 // Ports tests/test_csexp.c: 19 cases, 8 valid-input and 11 error-input (6
-// plain error cases plus 5 issue #365 regression cases). See docs/sexp.md
+// plain error cases plus 5 issue #365 regression cases). See docs/reference/sexp.md
 // section 6 for the case-by-case description this file follows.
 
 // --- valid-input cases -----------------------------------------------------
@@ -239,7 +239,7 @@ func TestCSexpEmptyInput(t *testing.T) {
 }
 
 // TestCSexpNestingTooDeep exercises the sexpMaxNesting cap (UCL_MAX_NESTING,
-// 1024) documented in docs/sexp.md section 1 but not covered by
+// 1024) documented in docs/reference/sexp.md section 1 but not covered by
 // test_csexp.c. 1024 levels of nesting must be accepted; 1025 must not.
 func TestCSexpNestingTooDeep(t *testing.T) {
 	ok := bytes.Repeat([]byte("("), sexpMaxNesting)

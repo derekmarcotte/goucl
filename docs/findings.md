@@ -214,7 +214,7 @@ upstream as a correctness bug; it is not a crash there.
 
 ## 10. Correction: two of the three "out-of-bounds reads" are not out of bounds
 
-`NOTES-parser.md` records three places where the C reads outside its buffer and
+`docs/notes/parser.md` records three places where the C reads outside its buffer and
 this port bounds instead. Investigating them against the reference build with
 AddressSanitizer, only one survives.
 

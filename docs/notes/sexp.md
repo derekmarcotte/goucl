@@ -1,61 +1,20 @@
 # NOTES — csexp (sexp.go)
 
 Status: complete. `sexp.go` implements the canonical S-expression decoder
-(`docs/sexp.md`), `sexp_test.go` ports every case in `tests/test_csexp.c` plus
+(`docs/reference/sexp.md`), `sexp_test.go` ports every case in `tests/test_csexp.c` plus
 a few extras and a native fuzz target. I own and only touched these two
 files; I did not edit `parser.go` or anything else.
 
-## Entry point to wire up
+## Entry point
 
-`parser.go:629-632` currently has:
+`DecodeCSexp(data []byte) (*Object, error)` and `DecodeCSexpFull(data, priority)`.
 
-```go
-case ParseCSexp:
-    // ucl_parse_csexp has no Go port yet; see NOTES-parser.md.
-    p.createErr("csexp support is disabled")
-    p.errCode = ErrSyntax
-    p.state = stateError
-    return false
-```
-
-Replace that whole branch with a call into a new `addCSexpChunk` helper,
-following the exact shape of the existing `addMsgPackChunk` (parser.go:659):
-
-```go
-case ParseCSexp:
-    return p.addCSexpChunk(data, priority)
-```
-
-```go
-func (p *Parser) addCSexpChunk(data []byte, priority uint) bool {
-    obj, err := DecodeCSexpFull(data, priority)
-    if err != nil {
-        msg := err.Error()
-        if _, rest, found := strings.Cut(msg, ErrCSexp.Error()+": "); found {
-            msg = rest
-        }
-        p.createErr("%s", msg)
-        p.errCode = ErrSyntax
-        p.state = stateError
-        return false
-    }
-    if p.topObj == nil {
-        p.topObj = obj
-        p.curObj = obj
-        return true
-    }
-    return p.topObj.Merge(obj, false)
-}
-```
-
-i.e. `addCSexpChunk` is `addMsgPackChunk` with `DecodeMsgPackFull`/`ErrMsgPack`
-swapped for `DecodeCSexpFull`/`ErrCSexp`. `ErrCSexp` and `DecodeCSexpFull` are
-both exported from `sexp.go` and ready to use.
-
-Public API surface added: `DecodeCSexp(data []byte) (*Object, error)`,
-`DecodeCSexpFull(data []byte, priority uint) (*Object, error)`, and
-`ErrCSexp error` (wrapped by every error the decoder returns, exactly as
-`ErrMsgPack` is for msgpack).
+`AddChunkFull`'s `ParseCSexp` arm dispatches to `addCSexpChunk`, which has the
+same shape as `addMsgPackChunk`: neither format is driven through the UCL state
+machine, both are decoded whole and merged into the parser's top object. That
+seam has its own tests in `parser_csexp_test.go`, because a correct decoder
+sitting behind an unwired dispatch arm still leaves `ucl_parser_add_chunk_full`
+broken for the format, and the decoder's own tests would not notice.
 
 ## Design notes
 
@@ -77,7 +36,7 @@ Public API surface added: `DecodeCSexp(data []byte) (*Object, error)`,
   must be exactly at end-of-input, or `DecodeCSexpFull` returns an error.
   This was verified case-by-case against the C's state machine (traced by
   hand for every issue #365 regression input) to confirm it produces the
-  same success/failure outcome, which is all `docs/sexp.md` requires for
+  same success/failure outcome, which is all `docs/reference/sexp.md` requires for
   parity — message text is explicitly not required to match.
 * Out-of-bounds-read divergence: N/A here — unlike some other components,
   every read in this decoder is already guarded by an explicit bounds check

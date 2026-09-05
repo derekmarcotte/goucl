@@ -7,7 +7,7 @@ import (
 )
 
 // This file ports src/ucl_sexp.c: the canonical S-expression (csexp) decoder,
-// ucl_parse_csexp. See docs/sexp.md for the grammar and the full case-by-case
+// ucl_parse_csexp. See docs/reference/sexp.md for the grammar and the full case-by-case
 // mapping to error text.
 //
 // ucl_parse_csexp is written as an explicit state machine over one flat byte
@@ -24,7 +24,7 @@ import (
 // Every failure the C's state machine distinguishes (bad start byte, bad
 // length digit, zero length, oversized length, truncated atom, value outside
 // any list, extra closing brace, trailing garbage, unclosed list, nesting too
-// deep) has a corresponding error return here; see the table in docs/sexp.md
+// deep) has a corresponding error return here; see the table in docs/reference/sexp.md
 // section 5. As that section notes, message text need not match verbatim,
 // only the success/failure outcome and, on success, the resulting object
 // tree -- several of the C's distinct error paths collapse onto the same Go
@@ -51,7 +51,7 @@ const sexpMaxNesting = 1024
 // UCL_PARSE_CSEXP) followed by ucl_parser_get_object, for a parser holding no
 // previous state.
 //
-// The grammar (docs/sexp.md section 1) is Rivest's canonical S-expression
+// The grammar (docs/reference/sexp.md section 1) is Rivest's canonical S-expression
 // restricted to libucl's subset:
 //
 //	sexp    := "(" element* ")"
@@ -67,7 +67,7 @@ const sexpMaxNesting = 1024
 // Every "(" becomes a TypeArray object (including the empty list "()") and
 // every atom becomes a TypeString object flagged FlagBinary, holding its
 // bytes verbatim; there is no numeric/boolean type inference for csexp atoms
-// the way the main UCL parser infers types for bare tokens (docs/sexp.md
+// the way the main UCL parser infers types for bare tokens (docs/reference/sexp.md
 // section 4). Divergence from UCL_PARSER_ZEROCOPY: like DecodeMsgPack, this
 // port always copies atom bytes into a freshly owned slice rather than
 // aliasing the input, so there is no zero-copy variant to mirror.
@@ -174,7 +174,7 @@ func (d *sexpDecoder) parseList(depth int) (*Object, error) {
 // parseAtom parses one length-prefixed atom "N:bytes" starting at d.buf[d.p],
 // mirroring the read_length and read_value states together. It always
 // returns a TypeString object flagged FlagBinary, per the csexp atom mapping
-// (docs/sexp.md section 4): csexp has no other atom shape, so there is
+// (docs/reference/sexp.md section 4): csexp has no other atom shape, so there is
 // nothing to type-infer.
 func (d *sexpDecoder) parseAtom() (*Object, error) {
 	var length uint64

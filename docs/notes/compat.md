@@ -1,6 +1,6 @@
 # NOTES: the go-libucl compatibility layer
 
-What was built, what had to diverge from `docs/compat-plan.md`, and what is
+What was built, what had to diverge from `docs/notes/compat-plan.md`, and what is
 left failing on purpose.
 
 Files: `compat.go` and `compat_test.go` here; `compat.go` and `go.mod` on the
@@ -15,7 +15,7 @@ through their unmodified `decoder.go` — builds and passes against pure Go:
 
 ## Divergence 1: the plan's pure-alias shim cannot compile
 
-`docs/compat-plan.md` calls for `type Object = goucl.Object` in the shim.
+`docs/notes/compat-plan.md` calls for `type Object = goucl.Object` in the shim.
 That is impossible, independently of anything this package exports:
 `decoder.go` declares
 

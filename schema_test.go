@@ -5,7 +5,7 @@ package goucl
 // testdata/schema holds the upstream draft-4 suites verbatim. The C harness
 // pipes each file into a binary that fails the whole process on the first
 // mismatch; this runs every case as its own subtest instead, which reports
-// more but means exactly the same thing per case (see docs/schema.md 6).
+// more but means exactly the same thing per case (see docs/reference/schema.md 6).
 //
 // Like the C, the shell wrapper globs *.json only, so the two *.json.disabled
 // files never run. TestSchemaDisabledSuitesAreSkipped pins that.

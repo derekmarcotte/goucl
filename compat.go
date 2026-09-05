@@ -8,8 +8,8 @@ import (
 // This file is the drop-in surface for github.com/mitchellh/go-libucl: the
 // exact method sets its decoder.go and its test suite call, reproduced so that
 // package can be rebuilt as a shim of type aliases over this one and keep its
-// own tests unmodified. See docs/compat.md for the per-item C semantics and
-// docs/compat-plan.md for the shape of the shim.
+// own tests unmodified. See docs/reference/compat.md for the per-item C semantics and
+// docs/notes/compat-plan.md for the shape of the shim.
 //
 // Naming. The plan called for these methods to live on Object and Parser
 // themselves. Four of the names they need are already taken by the C-mirror
@@ -25,7 +25,7 @@ import (
 // conversions below are free pointer conversions, so a CompatObject is
 // literally the node it came from. That preserves the identity the C binding
 // got from passing raw ucl_object_t pointers around — two lookups of the same
-// key return the same pointer, which docs/compat.md section 4.2 requires — and
+// key return the same pointer, which docs/reference/compat.md section 4.2 requires — and
 // it keeps the two API sets from colliding.
 //
 // Refcounting is gone: Ref, Close and Parser.Close are inert, because the GC

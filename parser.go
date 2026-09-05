@@ -6,7 +6,7 @@ package goucl
 // corresponding parts of src/ucl_util.c.
 //
 // The port is deliberately literal: every function carries the name of the C
-// function it mirrors, and the upstream quirks documented in docs/parser.md
+// function it mirrors, and the upstream quirks documented in docs/reference/parser.md
 // and docs/findings.md are reproduced rather than fixed. Where the C reads out
 // of bounds (backwards scans without a lower bound, p[-1] at the start of a
 // buffer) the Go bounds the read; on every input the C does not already
@@ -42,7 +42,7 @@ const (
 )
 
 // charTable is ucl_chartable, built from the class listing in
-// docs/parser.md section 3.1 rather than spelled out as 256 literals.
+// docs/reference/parser.md section 3.1 rather than spelled out as 256 literals.
 var charTable = func() (t [256]uint16) {
 	set := func(s string, mask uint16) {
 		for i := 0; i < len(s); i++ {
@@ -234,7 +234,7 @@ type ContextMacroHandler func(data []byte, args, ctx *Object) bool
 // VariableHandler resolves a ${...} variable the parser does not know,
 // mirroring ucl_variable_handler. It is only consulted for the braced form.
 //
-// Note the asymmetry documented in docs/parser.md section 8.2: the measuring
+// Note the asymmetry documented in docs/reference/parser.md section 8.2: the measuring
 // pass passes exactly the variable name, while the expansion pass passes the
 // rest of the string starting at the name, so a handler must locate the
 // closing brace itself if it cares.

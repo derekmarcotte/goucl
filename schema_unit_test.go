@@ -3,7 +3,7 @@ package goucl
 // Unit tests for the parts of ucl_schema.c the upstream corpus never reaches:
 // the UCL-only minValues/maxValues keywords, external and array-indexed $refs,
 // error codes and message text, the recursion guard, and each place this port
-// deliberately departs from the C. See NOTES-schema.md.
+// deliberately departs from the C. See docs/notes/schema.md.
 
 import (
 	"fmt"
@@ -208,7 +208,7 @@ func TestSchemaNonObjectSchema(t *testing.T) {
 }
 
 // TestSchemaSuccessReturnsNoError checks that the "stale err after a
-// successful anyOf/not" footgun documented in docs/schema.md 5 cannot be hit
+// successful anyOf/not" footgun documented in docs/reference/schema.md 5 cannot be hit
 // through this API: success always yields a nil error.
 func TestSchemaSuccessReturnsNoError(t *testing.T) {
 	// The first anyOf branch fails and writes an error before the second

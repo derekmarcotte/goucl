@@ -104,7 +104,7 @@ func DecodeMsgPackFull(data []byte, priority uint) (*Object, error) {
 	if d.cur == nil {
 		return nil, msgpackErrf("bad top level object for msgpack")
 	}
-	// docs/msgpack.md section 2.1: the first-byte heuristic alone does not
+	// docs/reference/msgpack.md section 2.1: the first-byte heuristic alone does not
 	// guarantee a container, so check the result too. Unreachable in practice
 	// -- the state machine has already rejected every non-container document --
 	// but it is the assertion that makes "the root is a container" a contract.
@@ -602,7 +602,7 @@ func (d *msgpackDecoder) parseBool(e *msgpackParserEntry) (int, error) {
 
 // parseIgnore stands in for ucl_msgpack_parse_ignore.
 //
-// Deliberate divergence (docs/msgpack.md sections 2.2 and 4): the C skips an
+// Deliberate divergence (docs/reference/msgpack.md sections 2.2 and 4): the C skips an
 // ext/fixext value's bytes and produces no object at all, but then neither
 // inserts anything nor decrements the enclosing container's expected-element
 // count -- so the container can never finish and the parse fails at EOF with

@@ -12,7 +12,7 @@ import (
 
 // Ports tests/test_msgpack.c (randomized emit -> parse -> emit byte identity)
 // and tests/test_msgpack_malformed.c (twelve inputs that must be rejected),
-// plus fixed vectors for every row of the format table in docs/msgpack.md.
+// plus fixed vectors for every row of the format table in docs/reference/msgpack.md.
 //
 // Every expected byte string below was captured from the reference build in
 // ../libucl/build unless a comment says otherwise.
@@ -588,7 +588,7 @@ func TestMsgPackMalformedMore(t *testing.T) {
 }
 
 // TestMsgPackExtIsRejected documents the one deliberate divergence from the C
-// (docs/msgpack.md sections 2.2 and 4): ext and fixext are a hard decode error
+// (docs/reference/msgpack.md sections 2.2 and 4): ext and fixext are a hard decode error
 // in any position.
 //
 // The C skips an ext value's bytes and produces no object, but then decrements
@@ -940,7 +940,7 @@ func TestMsgPackRoundTripVectors(t *testing.T) {
 }
 
 // TestMsgPackEmptyRootDoesNotReparse records an upstream round-trip defect
-// that this port reproduces (see NOTES-msgpack.md): emitting a document whose
+// that this port reproduces (see docs/notes/msgpack.md): emitting a document whose
 // root is an empty container produces a single byte, 0x80 or 0x90, which the
 // msgpack parser then rejects -- the finishing-state branch for an empty
 // container checks the stack before inserting, and at the top level there is
@@ -1026,7 +1026,7 @@ func FuzzMsgPackDecode(f *testing.F) {
 			// empty container (0x80/0x90), and a map whose last value is a
 			// zero-length string or blob -- which duplicate keys can produce
 			// out of an input that had a pair after it. See
-			// NOTES-msgpack.md section 4 and
+			// docs/notes/msgpack.md section 4 and
 			// TestMsgPackEmptyRootDoesNotReparse. Re-encoding must always
 			// work; decoding the result back is not something upstream
 			// guarantees.

@@ -18,7 +18,7 @@ import (
 // thin wrapper around one of two shared implementations that branch internally
 // on ctx->id and a baked-in "compact" flag. That structure is kept here as
 // methods on emitCtx rather than as literal function tables, per
-// docs/emitter.md section 8.
+// docs/reference/emitter.md section 8.
 
 // EmitComments carries the comment text the parser saved for individual
 // objects, mirroring the ucl_object_t hash that C passes as
