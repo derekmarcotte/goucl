@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // SchemaErrorCode mirrors enum ucl_schema_error_code.
@@ -1149,6 +1150,15 @@ func parseRefIndex(comp string) (int, bool) {
 // failures are cached too so the same schema keeps reporting the same error.
 var patternCache sync.Map // string -> patternEntry
 
+// patternCacheMax bounds that cache. The keys are pattern strings taken
+// straight from the schema, so a process validating untrusted schemas would
+// otherwise retain a compiled regexp for every distinct pattern it ever saw,
+// for the life of the process. Past the limit compilation still succeeds, it
+// just stops being memoised.
+const patternCacheMax = 1024
+
+var patternCacheLen atomic.Int64
+
 type patternEntry struct {
 	re  *regexp.Regexp
 	err error
@@ -1175,6 +1185,10 @@ func compilePattern(pattern string) (*regexp.Regexp, error) {
 		return e.re, e.err
 	}
 	re, err := regexp.CompilePOSIX(pattern)
-	patternCache.Store(pattern, patternEntry{re: re, err: err})
+	if patternCacheLen.Load() < patternCacheMax {
+		if _, loaded := patternCache.LoadOrStore(pattern, patternEntry{re: re, err: err}); !loaded {
+			patternCacheLen.Add(1)
+		}
+	}
 	return re, err
 }
