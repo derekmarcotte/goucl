@@ -27,80 +27,59 @@ type Object struct{ *goucl.Object }   // NO
 `decoder.go` would stop compiling. Wrapping every return value means rewriting
 `decoder.go`, which defeats the purpose.
 
-**Therefore the shim is pure type aliases**, and `goucl.Object` must itself
-expose the mitchellh method set:
+### Correction: pure aliases do not compile either
+
+This document originally concluded "therefore the shim is pure type aliases".
+That was wrong, and the compile error is unavoidable rather than a detail of
+how it is written. `decoder.go` line 13 declares
 
 ```go
-package libucl
+func (o *Object) Decode(v interface{}) error
+```
 
-import "example.com/goucl"
+and Go forbids defining a method on a non-local type. An alias *is* the
+non-local type, so the shim fails with:
 
-type Object = goucl.Object          // alias, not a definition
-type ObjectIter = goucl.ObjectIter
-type Parser = goucl.Parser
-type ObjectType = goucl.Type
+```
+cannot define new methods on non-local type Object
+```
+
+Wrapping fails for the reason given above; aliasing fails for this one. The
+answer is the third option: **defined types over the goucl types**, which are
+local (so `decoder.go` may hang `Decode` on them) while sharing an identical
+underlying struct.
+
+```go
+type Object goucl.CompatObject          // defined type, not an alias
+type ObjectIter goucl.CompatObjectIter
+type Parser goucl.CompatParser
+
+type ObjectType = goucl.Type            // these stay plain aliases
 type Emitter = goucl.Emitter
 type ParserFlag = goucl.ParserFlag
 type MacroFunc = goucl.MacroFunc
 ```
 
-With aliases, `goucl.Object.Get` returning `*goucl.Object` *is* returning
-`*libucl.Object`. The chain type-checks and `decoder.go` needs no edits.
+Methods are one-line forwarders, and the conversions between `*Object` and
+`*goucl.CompatObject` are free pointer conversions because the underlying
+structs are identical. That matters for more than speed: `*libucl.Object`
+remains *the same node*, so no lookup allocates a wrapper and calling `Get`
+twice returns the identical pointer — which
+`TestObjectDecode_mapStructObject` actually observes.
 
-## What goucl must therefore export
+The chaining constraint that ruled out wrappers is still satisfied, because
+the forwarders return the local `*Object` type.
 
-Method names on `*Object`, exactly:
+### Why the goucl side needs `Compat`-prefixed types
 
-    Close() error        Emit(Emitter) (string, error)   Delete(string)
-    Get(string) *Object  Iterate(bool) *ObjectIter       Key() string
-    Len() uint           Ref() error                     Type() ObjectType
-    ToBool() bool        ToInt() int64                   ToFloat() float64
-    ToString() string
+Four names on `goucl.Object`/`goucl.Parser` were already taken by the C-mirror
+API with different signatures — `Object.Key() []byte`,
+`Parser.AddString/AddFile(...) bool`, and
+`Parser.RegisterMacro(string, MacroHandler) bool`. Rather than change files it
+did not own, the compat layer defines `CompatObject`, `CompatObjectIter` and
+`CompatParser` over the real types and hangs the mitchellh method set on those.
 
-`*ObjectIter`: `Close()` — **no return value**, unlike `Object.Close() error`.
-That asymmetry is part of the call-site contract; preserve it.
+`Len()` reads the unexported length field directly, which is legal because
+`compat.go` lives in package `goucl`. No frozen file needed changing.
 
-`*Parser`: `AddString(string) error`, `AddFile(string) error`, `Close()`,
-`Object() *Object`, `RegisterMacro(string, MacroFunc)`.
-Package level: `ParseString(string) (*Object, error)`, `NewParser(ParserFlag) *Parser`.
-
-Constant *values* must match the C enums, which `types.go` already pins:
-`ObjectType` follows `ucl_type_t`, `Emitter` follows `ucl_emitter_t`.
-
-## Notes for whoever implements this
-
-* `(*Object).Emit` is deliberately unclaimed. The emitter package exposes
-  `EmitText*`; the compat `Emit` is the dispatcher that routes the four text
-  formats there and `EmitMsgPack` to the msgpack encoder. Per `compat.md` §2 it
-  must **never surface an error**, so swallow `ErrEmitFormat` and return
-  `("", nil)`.
-* `Ref()`/`Close()` exist only to manage C memory and become no-ops returning
-  `nil` — but `Ref` on an object flagged `FlagEphemeral` still deep-copies
-  (see `object-model.md` §7.4). Check whether any go-libucl test observes this.
-* `Len()` has a quirk to preserve: for an object with a non-nil `Next`
-  (implicit array) it counts by iteration rather than reading the length field.
-* Aliases mean `goucl` owns these names. Keep the C-mirror API (`ToStringSafe`,
-  `LookupPath`, ...) alongside them; the two sets coexist.
-
-## Branch mechanics
-
-In `../go-libucl` (a git repo at `f9d0e55`):
-
-1. `git switch -c pure-go`
-2. Delete the cgo files: `parser.go`, `object.go`, `libucl.go`, `go-libucl.h`.
-3. Keep `decoder.go`, `decoder_test.go`, `object_test.go`, `parser_test.go`
-   **unmodified**.
-4. Add `compat.go` with the aliases above.
-5. Add `go.mod`:
-
-   ```
-   module github.com/mitchellh/go-libucl
-   go 1.21
-   require example.com/goucl v0.0.0
-   replace example.com/goucl => ../goucl
-   ```
-
-6. `go test ./...` — mitchellh's own suite, unmodified, against pure Go.
-
-Flag any test that pins C-specific behaviour (pointer identity, use-after-free,
-refcounting) rather than semantics; those are the legitimate exceptions.
+To retire the `Compat` prefix later, those four names are what must move.
