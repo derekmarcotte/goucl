@@ -163,3 +163,32 @@ contents (`hash.Len()`, the non-nil array element count). Trees built through
 the object API are unaffected, so byte identity is preserved everywhere it is
 observable; only the C's self-inconsistent case differs, and there the C's
 output is unreadable by any decoder including its own.
+
+## 9. A truncated `\u` escape reads one byte past the string
+
+`ucl_unescape_json_string` tracks the remaining length in `len`, but `len` is
+not decremented for the backslash itself, so it drifts one ahead of the read
+cursor `h`. The four-digit guard is `if (len > 3)`, which therefore passes when
+only three bytes are actually left, and the loop reads `h[0]` through `h[3]`.
+
+For the input `0 \u000` the C emits a decoded character built from `000` plus
+whatever byte follows the value, instead of falling through to its own
+short-escape path and emitting a literal `u`.
+
+It is a logic bug rather than a demonstrable memory-safety one: the C unescapes
+in place inside a buffer the parser already owns, which is usually larger than
+the value, so the read lands in allocation slack. AddressSanitizer stays quiet
+even when the chunk handed to `ucl_parser_add_chunk` is exactly sized, because
+the string being unescaped is the parser's copy, not the caller's.
+
+**In Go it is fatal, not cosmetic.** Slices are exactly sized and bounds
+checked, so the same arithmetic panics with an index out of range — a denial of
+service on any input containing a truncated escape.
+
+**Decision: diverge, and bound the read.** The guard keeps the original
+condition and adds `h+4 <= len(s)`, so behaviour is unchanged wherever the C
+was reading real bytes and only differs where it was reading past the value.
+Truncated escapes now take the C's own short-escape path.
+
+Found by `FuzzParseString`, which reached it in seconds. Worth reporting
+upstream as a correctness bug; it is not a crash there.

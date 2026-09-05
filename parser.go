@@ -2122,7 +2122,11 @@ func unescapeJSONString(s []byte) []byte {
 			case 'u':
 				h++
 				remaining--
-				if remaining > 3 {
+				// remaining counts down independently of h and does not
+				// decrement for the backslash, so it can exceed the bytes
+				// actually left. The C reads past the end here on a
+				// truncated escape such as "\u000"; bound it instead.
+				if remaining > 3 && h+4 <= len(s) {
 					uval := 0
 				digits:
 					for i := 0; i < 4; i++ {
