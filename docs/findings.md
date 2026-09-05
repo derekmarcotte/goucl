@@ -20,18 +20,37 @@ not-found path is what got recorded.
 **Decision: replicate.** It is observable and fixtures depend on it.
 `tools/gen-goldens.sh` pins the cwd for this reason.
 
-## 2. `-M` (UCL_PARSER_DISABLE_MACRO) is not "treat macros as comments"
+## 2. `-M` (UCL_PARSER_DISABLE_MACRO) never reached its own skip path
 
-The flag's documented intent is to skip macros, but a disabled `.include` is
-then lexed as an ordinary key and rejected:
+The flag is documented as "Treat macros as comments", and
+`ucl_skip_macro_as_comment` exists to do exactly that. Nothing calls it: its
+only caller is the `UCL_STATE_MACRO_NAME` arm, and both places that enter that
+state guard on `!(flags & UCL_PARSER_DISABLE_MACRO)`. With the flag set the
+parser never reaches the skip path, the leading `.` is lexed as an ordinary
+key, and the document is rejected with
 
     'key must begin with a letter', character: '.'
 
-This is a hard parse failure on 8 of 26 fixtures (9, 13, 14, 15, 16, 18, 19,
-23, load). Upstream never notices: `basic.test` runs `-M` with output to
-/dev/null and checks the exit status of only the *first* invocation.
+So the feature is unreachable and the function is dead code. It fails on 8 of
+26 fixtures. Upstream never noticed because `basic.test` discards `-M` output
+and checks the exit status of only its first invocation.
 
-**Decision: replicate.** Captured as `*.nomacro.err` goldens.
+**Decision: DIVERGE — skip the macro, as documented.** Originally recorded as
+*replicate*, on the grounds that it was released 0.9.4 behaviour. Reversed: a
+flag that rejects every document containing a macro is useless to callers, and
+being bug-compatible with a bug we are fixing upstream is incoherent.
+
+Combining the fix with `SAVE_COMMENTS` also required not recording the skipped
+macro. `macro_save` passed the macro body to `ucl_save_comment`, but that range
+begins after the `.` is consumed and carries no comment delimiter, unlike every
+other call site. Emitting wrote bare macro text back out as though it were a
+comment, and reparsing failed with `'invalid character in a key'`. A skipped
+macro is not a comment, so it is dropped. This cannot regress anyone: the path
+has never been reachable.
+
+Fixed upstream on branch `fix-disable-macro`, and adopted here.
+`TestParserDisableMacroSkipsMacroLines` pins it, and the nine `*.nomacro.err`
+expectations became ordinary goldens.
 
 ## 3. A comment as the first line inside an array corrupts the next element
 

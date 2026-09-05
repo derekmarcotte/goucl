@@ -34,9 +34,11 @@
 # ("Error occurred (phase 1): ..."), so error text is recovered from the
 # output file rather than from a stderr redirect.
 #
-# A failure is a legitimate expectation, not a skip: basic/14.in genuinely
-# fails to parse under -M because a disabled `.include` macro is then read as
-# an ordinary key and rejected. The Go port must fail the same way.
+# A failure is a legitimate expectation rather than a skip, so it is captured
+# as a golden of its own. As of the fixes carried on the libucl branches
+# fix-array-leading-comment, fix-disable-macro and fix-truncated-unicode-escape
+# no fixture fails any more, and the reference build these goldens come from is
+# expected to carry them (see docs/findings.md items 2, 3 and 9).
 #
 # Usage: tools/gen-goldens.sh   (from anywhere; needs the C reference built)
 set -e

@@ -1,0 +1,11 @@
+key = "value";
+prefix1 {
+    key = "value";
+}
+array [
+    10,
+]
+array1 [
+    10,
+]
+

@@ -221,13 +221,41 @@ func TestParserErrorMessages(t *testing.T) {
 	}
 }
 
-func TestParserDisableMacroRejectsMacroLines(t *testing.T) {
-	// ParserDisableMacro does not make macros behave like comments: the
-	// leading '.' is then lexed as a key and rejected (findings.md item 2).
-	_, err := parseConfig(t, ".include \"x\"\n", ParserDisableMacro, DuplicateAppend)
-	want := "error while parsing <unknown>: line: 1, column: 0 - 'key must begin with a letter', character: '.'"
-	if err == nil || err.Error() != want {
-		t.Errorf("got %v, want %q", err, want)
+func TestParserDisableMacroSkipsMacroLines(t *testing.T) {
+	// ParserDisableMacro means what it says: a macro is skipped, not
+	// rejected. Released libucl 0.9.4 fails here with "key must begin with a
+	// letter", because it never enters the state that holds its own skip
+	// path, leaving ucl_skip_macro_as_comment unreachable. This port takes
+	// the fix (findings.md item 2, libucl branch fix-disable-macro).
+	for _, src := range []string{
+		".include \"x\"\n",
+		".include(try=true) \"x\"\na = 1;\n",
+		".priority 5\na = 1;\n",
+		"a = 1;\n.include \"x\"\nb = 2;\n",
+	} {
+		if _, err := parseConfig(t, src, ParserDisableMacro, DuplicateAppend); err != nil {
+			t.Errorf("%q: %v", src, err)
+		}
+	}
+
+	// Skipping must drop the macro rather than smuggle it through as
+	// content, and the surrounding document must survive intact.
+	got, err := parseConfig(t, "a = 1;\n.include \"x\"\nb = 2;\n", ParserDisableMacro, DuplicateAppend)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if want := "a = 1;\nb = 2;\n"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+
+	// With comments saved too, the skipped macro must not be recorded: it
+	// carries no comment delimiter, so emitting it would not reparse.
+	got, err = parseConfig(t, "a = 1;\n.include \"x\"\n", ParserDisableMacro|ParserSaveComments, DuplicateAppend)
+	if err != nil {
+		t.Fatalf("unexpected error with SaveComments: %v", err)
+	}
+	if want := "a = 1;\n"; got != want {
+		t.Errorf("with SaveComments got %q, want %q", got, want)
 	}
 }
 

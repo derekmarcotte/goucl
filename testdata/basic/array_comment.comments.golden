@@ -1,0 +1,52 @@
+# A comment on the first line inside an array, followed by an indented
+# value, used to leave the value's leading whitespace unconsumed: the
+# element was lexed as the string "  1" instead of the integer 1, and the
+# block comment form failed outright with "string value must not be empty".
+single [
+    # leading line comment
+    1,
+    2,
+]
+block [
+    /* leading block comment */
+
+    1,
+    2,
+]
+object_element [
+    # a comment before an object element
+    {
+        key = "value";
+    }
+    2,
+]
+several [
+    # first
+    /* second */
+
+    # third
+    1,
+]
+# Cases that already worked, kept as controls.
+no_comment [
+    1,
+    2,
+]
+comment_at_column_zero [
+    # not indented
+    1,
+    2,
+]
+comment_after_first [
+    1,
+    # between elements
+    2,
+]
+nested [
+    # outer
+    [
+        # inner
+        1,
+    ]
+]
+

@@ -1,0 +1,7 @@
+section {
+    value = "test";
+}
+overrided {
+    value = "not-to-be-shown";
+}
+

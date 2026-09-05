@@ -1235,7 +1235,7 @@ func (p *Parser) parseKey(ch *chunk, nextKey, endOfObject, gotContent *bool) boo
 		return true
 	}
 
-	if ch.cur() == '.' && p.flags&ParserDisableMacro == 0 {
+	if ch.cur() == '.' {
 		ch.skip()
 		p.prevState = p.state
 		p.state = stateMacroName
@@ -1268,7 +1268,7 @@ func (p *Parser) parseKey(ch *chunk, nextKey, endOfObject, gotContent *bool) boo
 			case ch.cur() == '}':
 				*endOfObject = true
 				return true
-			case ch.cur() == '.' && p.flags&ParserDisableMacro == 0:
+			case ch.cur() == '.':
 				ch.skip()
 				p.prevState = p.state
 				p.state = stateMacroName

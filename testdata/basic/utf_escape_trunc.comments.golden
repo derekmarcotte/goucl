@@ -1,0 +1,16 @@
+# A truncated \u escape in an unquoted value. ucl_unescape_json_string
+# tracks the remaining length in a counter that is not decremented for the
+# backslash, so it drifts one ahead of the read cursor and the four-digit
+# guard passes when only three bytes are left. The value below is the
+# shortest input that reaches that: the parser read a fourth digit from
+# beyond the end of the value and decoded it.
+#
+# Quoted strings do not reach this -- ucl_lex_json_string rejects a short
+# escape with 'invalid utf escape' before unescaping runs -- so every value
+# here is deliberately unquoted.
+trunc4 = "u00";
+trunc3 = "u0";
+trunc2 = "u";
+trunc1 = "u";
+complete = "A";
+

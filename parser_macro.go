@@ -198,7 +198,6 @@ func (p *Parser) skipMacroAsComment(ch *chunk) bool {
 		save
 	)
 	state, prevState := skipStart, skipStart
-	c := ch.pos
 
 	for !ch.atEnd() {
 		switch state {
@@ -260,9 +259,11 @@ func (p *Parser) skipMacroAsComment(ch *chunk) bool {
 			ch.skip()
 
 		case save:
-			if p.flags&ParserSaveComments != 0 {
-				p.saveComment(ch.data[c:ch.pos])
-			}
+			// A skipped macro is deliberately not recorded as a comment.
+			// The range would start after the '.' and carry no comment
+			// delimiter, unlike every other saveComment call site, so
+			// emitting it would write bare macro text back out as though it
+			// were a comment and the result would not reparse.
 			return true
 		}
 	}
