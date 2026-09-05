@@ -15,6 +15,7 @@ package goucl
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -813,7 +814,11 @@ func (p *Parser) AddFdFull(fd uintptr, priority uint, strat DuplicateStrategy, p
 		return true
 	}
 	buf := make([]byte, st.Size())
-	n, err := f.Read(buf)
+	// io.ReadFull, not a bare Read: a single Read may return fewer bytes
+	// than requested and the rest of the document would be dropped in
+	// silence. The C mmaps the whole file here. The include path in
+	// parser_macro.go already does this.
+	n, err := io.ReadFull(f, buf)
 	if err != nil && n == 0 {
 		p.createErr("cannot mmap fd %d: %s", fd, cErrno(err))
 		return false
