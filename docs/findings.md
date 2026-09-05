@@ -33,23 +33,66 @@ This is a hard parse failure on 8 of 26 fixtures (9, 13, 14, 15, 16, 18, 19,
 
 **Decision: replicate.** Captured as `*.nomacro.err` goldens.
 
-## 3. Comment emission produces output libucl cannot reparse
+## 3. A comment as the first line inside an array corrupts the next element
 
-With `-C` (SAVE_COMMENTS), emitting `basic/9.in` yields config text that fails
-to parse back:
+Not a comment-emission problem, and not specific to SAVE_COMMENTS — this is a
+parser bug, reproduced with flags of 0. When a comment is the first thing
+inside an array and the following content is **indented**, the parser fails to
+advance the value start past the leading whitespace, so the next element is
+lexed as a string:
 
-    Error occurred (phase 2): error while parsing <unknown>: line: 9,
-    column: 4 - 'string value must not be empty', character: '#'
+    arr [
+      # c
+      1,
+      2
+    ]                    ->  ["  1", 2]      first element is a STRING
 
-The emitter places comments inside an array literal where the parser will not
-accept them. This is a round-trip bug in libucl, invisible upstream for the
-same reason as #2.
+    arr [
+      # c
+      {a=1},
+      2
+    ]                    ->  ["  {a=1}", 2]  the object is swallowed too
 
-**Decision: replicate the emitted bytes, and record the reparse failure as a
-known upstream defect** (`9.comments.err`). Emitting byte-identical output is
-the compatibility contract; emitting *reparseable* output is not something
-libucl itself provides. Revisit if the application relies on comment
-round-tripping — a fixed mode would then be an additive, opt-in divergence.
+    arr [
+      /* c */
+      1,
+      2
+    ]                    ->  hard parse error:
+                             'string value must not be empty', character: '0x0a'
+
+The trigger is the indentation, not the comment. All of these are fine:
+
+    arr [ 1, 2 ]                 ok
+    arr [\n  1,\n  2\n]          ok        (no comment)
+    arr [\n# c\n1,\n2\n]         ok        (comment, but content at column 0)
+    arr [\n  1,\n  # c\n  2\n]   ok        (comment after the first element)
+
+Comments everywhere else are well covered: at top level, before or after keys,
+and inside objects, they parse and re-emit correctly. 25 of 26 fixtures
+round-trip cleanly in save-comments mode.
+
+Confirmed present at upstream HEAD (adef4bb, tag 0.9.4) — `git fetch` shows no
+commits after our pin, so this is unfixed upstream, not something we are
+behind on.
+
+**Where it bites us:** no fixture's *input* contains an indented comment inside
+an array, so nothing hits this on the way in. `basic/9.in` reaches it only
+through the harness's emit-then-reparse cycle: repeated `.include`s make
+`prefix1` an implicit array, saved comments are emitted inside it, and the
+reparse then fails. That is the sole source of `9.comments.err`.
+
+**Decision: DIVERGE — parse this correctly.** Reasons:
+
+* It is data corruption, not a contract. No caller can be relying on
+  `1` silently becoming `"  1"`.
+* Comment support is a main reason to choose UCL over JSON, so quietly
+  inheriting a comment-related parser bug is the wrong default.
+* The cost is one expectation, not a golden: `9.comments.err` currently
+  records the failure and would need to become a success case. No `.golden`
+  file depends on the buggy path.
+
+Keep a regression test that documents the C's behaviour alongside ours, so the
+divergence stays deliberate and visible rather than looking like an accident.
 
 ## 4. msgpack negative-integer width selection is off by one power of two
 
