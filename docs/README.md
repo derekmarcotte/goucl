@@ -1,3 +1,6 @@
+
+[`../DESIGN.md`](../DESIGN.md) sits outside this hierarchy on purpose: it is a
+forward-looking proposal for an idiomatic API, not a record of what exists.
 # Documentation
 
 Three kinds of document, kept apart because they have different authority and

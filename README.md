@@ -8,6 +8,9 @@ dependents can drop the C dependency with an import-path swap.
 Status: **feature complete.** See [`docs/`](docs/) for the decision record,
 implementation notes and extracted C behaviour.
 
+[`DESIGN.md`](DESIGN.md) proposes a next phase: an idiomatic Go API alongside
+the drop-in compatibility layer. It is a proposal with no code behind it.
+
 ## Scope
 
 Full port: parser (UCL + JSON), object model, the config/JSON/JSON-compact/YAML
