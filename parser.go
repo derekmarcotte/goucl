@@ -627,11 +627,7 @@ func (p *Parser) AddChunkFull(data []byte, priority uint, strat DuplicateStrateg
 			case ParseMsgPack:
 				return p.addMsgPackChunk(data, priority)
 			case ParseCSexp:
-				// ucl_parse_csexp has no Go port yet; see NOTES-parser.md.
-				p.createErr("csexp support is disabled")
-				p.errCode = ErrSyntax
-				p.state = stateError
-				return false
+				return p.addCSexpChunk(data, priority)
 			default:
 				return p.stateMachine()
 			}
@@ -2255,4 +2251,31 @@ func cErrno(err error) string {
 		return msg
 	}
 	return strings.ToUpper(msg[:1]) + msg[1:]
+}
+
+// addCSexpChunk feeds a chunk to the canonical S-expression decoder,
+// mirroring the UCL_PARSE_CSEXP arm of ucl_parser_add_chunk_full.
+//
+// Like msgpack, csexp is decoded whole rather than driven through the UCL
+// state machine, so this is the same shape as addMsgPackChunk.
+func (p *Parser) addCSexpChunk(data []byte, priority uint) bool {
+	obj, err := DecodeCSexpFull(data, priority)
+	if err != nil {
+		// Strip the Go error wrapper so the recorded text is the message
+		// ucl_create_err would have stored.
+		msg := err.Error()
+		if _, rest, found := strings.Cut(msg, ErrCSexp.Error()+": "); found {
+			msg = rest
+		}
+		p.createErr("%s", msg)
+		p.errCode = ErrSyntax
+		p.state = stateError
+		return false
+	}
+	if p.topObj == nil {
+		p.topObj = obj
+		p.curObj = obj
+		return true
+	}
+	return p.topObj.Merge(obj, false)
 }
