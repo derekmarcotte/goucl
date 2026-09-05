@@ -1,0 +1,8 @@
+# In this test we test include override bug
+overrided {
+    key = "overrided";
+}
+section {
+    value = "test";
+}
+

@@ -1,0 +1,6 @@
+# Bad comments case
+# key = value;
+section {
+}
+key = "value";
+
