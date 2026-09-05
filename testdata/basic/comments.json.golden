@@ -1,0 +1,10 @@
+{
+    "obj": {
+        "key": [
+            "value",
+            "/* value",
+            "nested",
+            "quotes"
+        ]
+    }
+}
