@@ -263,3 +263,44 @@ surviving `ucl_parser_free` on malformed input, roughly one run in twenty.
 reproduce in isolation, so this is **not confirmed** and may be an artefact of
 the harness. Recorded so it is not lost; needs a minimal reproducer before it
 is worth reporting.
+
+## 11. A repeated key holding arrays loses all but the first on JSON emission
+
+A key given more than once forms an implicit array — libucl's own term, from
+its README: "if we have two duplicate objects with the same priority then we
+have a multi-value key (implicit array)". The JSON emitters render that chain
+as a JSON array, and do so correctly for scalars and for objects. For values
+that are themselves arrays, they emit only the first.
+
+Verified against the reference build. The chain is intact in the tree in every
+case; only the emitted JSON differs:
+
+| document | chain | `UCL_EMIT_JSON_COMPACT` | `UCL_EMIT_CONFIG` |
+|---|---|---|---|
+| `x = 1; x = 2;` | 2 | `{"x":[1,2]}` | both values |
+| `x = [1]; x = [2];` | 2 | **`{"x":[1]}`** | both values |
+| `x { a = 1; } x { b = 2; }` | 2 | `{"x":[{"a":1},{"b":2}]}` | both values |
+
+The config emitter is correct in all three. The loss is specific to the JSON
+path and to array-valued chains.
+
+This is not the lossiness `doc/api.md` already warns about — "JSON ... can
+possibly lose some original data, such as implicit arrays". That note is about
+losing the *distinction* between a repeated key and an array literal, which is
+unavoidable in JSON and which the scalar row above shows working as intended.
+Here an entire value disappears, and inconsistently: the same document shape
+survives when its values are scalars or objects.
+
+**Decision: replicate, for now.** The port reproduces it, because the goldens
+come from the C and because no caller has been shown to depend on either
+behaviour. It is a genuine defect by the rule this register follows — it
+produces a wrong answer rather than a surprising one — so it is a candidate
+for the same treatment as findings #2, #3 and #9: fix here, report upstream,
+regenerate the goldens from a reference build carrying the fix.
+
+Fixing it has a cost worth stating plainly: our JSON output would stop being
+byte-identical to the C's for this input class, which is the property the
+golden corpus exists to prove. That trade wants deciding deliberately rather
+than in passing, so it is recorded and left alone.
+
+Not yet reduced to a minimal upstream patch.
