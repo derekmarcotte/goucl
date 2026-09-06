@@ -769,9 +769,14 @@ Nothing else changes. The `libucl` struct tag, `Object.Decode`, `Emit`,
 keep their names, values and signatures.
 
 The proof is that mitchellh's own test suite — `decoder_test.go`,
-`object_test.go` and `parser_test.go`, byte-for-byte unmodified, decoding
-through his unmodified `decoder.go` — builds and passes against this
-implementation: 39 of 39 tests.
+`object_test.go` and `parser_test.go`, decoding through his unmodified
+`decoder.go` — builds and passes against this implementation: **38 of his 39
+tests, unmodified**. The 39th is disabled because it is flaky upstream,
+asserting a fixed order over a Go map iteration; that was verified by building
+his original cgo binding against the C library and running it 40 times, not
+inferred. The evidence sits beside the test, a deterministic replacement is in
+`decoder_flaky_test.go`, and `tools/check-compat-identity.sh` proves the
+carried-over files are otherwise untouched.
 
 Two things to know:
 

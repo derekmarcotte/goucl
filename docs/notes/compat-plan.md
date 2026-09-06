@@ -151,6 +151,13 @@ Built on branch `pure-go` of `../go-libucl` (commit `6ebd62b`).
 object_test.go parser_test.go`, which is empty. The package also builds under
 `CGO_ENABLED=0`, which is the point of the exercise.
 
+> Superseded, and left as the record of what was true here. One of the 39,
+> `TestObjectDecode_structKeys`, was later found to be flaky *upstream* — it
+> asserts a fixed order over a Go map iteration — and is now disabled, so the
+> current claim is 38 of his 39 passing unmodified, with `decoder_test.go`
+> differing by exactly those comment markers. See `docs/notes/compat.md` and
+> the evidence block beside the test itself.
+
 Two things left deliberately untouched, both pre-existing at `f9d0e55`:
 
 * `TestObjectDecode_structKeys` flakes roughly one run in eight.
