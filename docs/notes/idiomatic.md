@@ -77,6 +77,81 @@ Note that the parser's `attachComment(obj, before)` parameter reads backwards:
 it is called with `before=true` from the *after-value* paths. Trust the flag
 and the emitter, not the parameter name.
 
+### A time does not survive a text round trip as a time
+
+`Marshal` encodes a `time.Duration` as a UCL time, and `Node.Duration` reads
+one back, but a document that goes out as text and comes back in has lost the
+distinction: the value returns as `KindFloat`, not `KindTime`.
+
+That is the C's behaviour, not a gap in the encoder. The emitter has no textual
+way to mark a number as seconds, so a time emits as a plain double. Verified
+against the compiled reference rather than reasoned from the port:
+
+```
+t = 10s;        parses to type "number"
+u = 2min;
+
+config emit ->  t = 10.0;
+                u = 120.0;
+json emit   ->  {"t":10.0,"u":120.0}
+```
+
+A document author can observe this — `10s` written by hand comes back as
+`10.0` from the C too — so it is the language, not a defect, and it is
+reproduced rather than corrected. The consequence for the idiomatic layer is
+that `Duration` round trips through the *tree* (`toNode` then `Node.Duration`)
+and not through *text*. `marshal_test.go` asserts it at the tree level and
+says why.
+
+### The config emitter replaces control bytes
+
+A UCL string holds raw bytes, and `Marshal` puts a `[]byte` in one without
+base64 encoding it. Emitting is still lossy for part of the byte range: the
+config emitter writes `�` for bytes below 0x20 and for 0x7F, while high
+bytes pass through untouched. Verified against the reference:
+
+```
+insert the bytes  61 01 1f 7f ff 62
+config emit ->    k = "a���\xffb";
+```
+
+So `0xFF` survives a text round trip and `0x01` does not. This is the C's
+escaping, so it stands. `marshal_test.go`'s byte round trip deliberately picks
+content outside the lossy range while still covering high bytes and embedded
+structure, and a comment there points here.
+
+### A failing macro is an error here and is not one in the C
+
+`WithMacro` takes a `MacroFunc` that returns an error, because DESIGN.md §2
+asked for a macro that can fail. Delivering that meant diverging from the
+engine, which cannot express it.
+
+In the C, a macro handler returning `false` aborts the chunk, records **no**
+error, and leaves a document behind. Verified against the reference, with a
+handler that does nothing but return `false`:
+
+```
+add_chunk = false
+get_error = (none)
+object    = yes        (and it emits as empty)
+```
+
+The engine reproduces that faithfully, and `internal/core` asserts it on
+purpose. Two decisions then collide. `finish` deliberately ignores what the
+add call returned, because a document that parses perfectly well can still
+return `false` (see the `add_file` note above). So the one signal the C gives
+for a failed macro is precisely the signal this package had already decided
+not to trust -- and a macro failure would surface as a successful parse of an
+empty document.
+
+`WithMacro` closes the gap above the engine rather than inside it: the wrapper
+captures the first error its `MacroFunc` returns, and the parse entry points
+check it after the add and report a `*SyntaxError` with `ErrMacro` and the
+parser's position. Nothing in `internal/core` changed, so the mirror stays
+exact and the divergence lives entirely in the idiomatic layer -- which is
+what that layer is for. A caller using the compatibility layer still sees the
+C's behaviour unchanged.
+
 ## Deliberate differences from the compatibility layer
 
 `Node.Len` returns the number of children — keys for an object, elements for an
