@@ -46,7 +46,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=$(cd "$ROOT/.." && pwd)
 PROG=$WORK/libucl/build/tests/test_basic
 SRC=$WORK/libucl/tests/basic
-DST=$ROOT/testdata/basic
+DST=$ROOT/internal/core/testdata/basic
 RUNDIR=$WORK/libucl/build
 
 [ -x "$PROG" ] || { echo "build the C reference first: cmake -B ../libucl/build ../libucl && cmake --build ../libucl/build" >&2; exit 1; }
