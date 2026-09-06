@@ -156,9 +156,9 @@ func ExampleNode_All() {
 	// debug: boolean
 }
 
-// Values walks an array's elements. It also walks the implicit array a
-// repeated key forms, because in UCL a lone value and a one-element array are
-// the same thing.
+// Values yields every value a key holds, and Elements looks inside an array.
+// They answer different questions and neither guesses which was meant: a key
+// whose value is an array yields that array from Values, not its contents.
 func ExampleNode_Values() {
 	doc, err := goucl.ParseString(`
 		ports = [80, 443, 8080];
@@ -170,16 +170,16 @@ func ExampleNode_Values() {
 		log.Fatal(err)
 	}
 
+	// One value, which is an array: Elements looks inside it.
 	node, _ := doc.Get("ports")
 	var ports []int64
-	for p := range node.Values() {
+	for p := range node.Elements() {
 		n, _ := p.Int("")
 		ports = append(ports, n)
 	}
 	fmt.Println(ports)
 
-	// A key given twice is yielded once by All, as the head of a chain.
-	// Values reaches the rest of it.
+	// Two values: Values yields each of them.
 	node, _ = doc.Get("listen")
 	var ifaces []string
 	for v := range node.Values() {
@@ -187,12 +187,23 @@ func ExampleNode_Values() {
 		ifaces = append(ifaces, s)
 	}
 	fmt.Println(ifaces)
+
+	// Keeping them apart is what makes a repeated key of arrays reachable.
+	doc, _ = goucl.ParseString(`allow = [10]; allow = [20];`)
+	node, _ = doc.Get("allow")
+	for v := range node.Values() {
+		for e := range v.Elements() {
+			n, _ := e.Int("")
+			fmt.Print(n, " ")
+		}
+	}
+	fmt.Println()
 	// Output:
 	// [80 443 8080]
 	// [eth0 eth1]
+	// 10 20
 }
 
-// Bytes renders a node in any of the four output formats, so converting UCL to
 // JSON is a parse and an encode.
 func ExampleNode_Bytes() {
 	doc, err := goucl.ParseString(`

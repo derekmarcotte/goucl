@@ -153,17 +153,17 @@ func TestIndexAndValues(t *testing.T) {
 	}
 
 	var got []int64
-	for v := range arr.Values() {
+	for v := range arr.Elements() {
 		n, _ := v.Int("")
 		got = append(got, n)
 	}
 	if !slices.Equal(got, []int64{10, 20, 30}) {
-		t.Errorf("Values = %v, want [10 20 30]", got)
+		t.Errorf("Elements = %v, want [10 20 30]", got)
 	}
 }
 
-// A repeated key is an implicit array in UCL. All yields the key once; Values
-// walks the chain.
+// A key is yielded once by All however many values it holds; Values reaches
+// the values themselves.
 func TestImplicitArray(t *testing.T) {
 	doc := mustParse(t, "k = 1;\nk = 2;\nk = 3;\n")
 

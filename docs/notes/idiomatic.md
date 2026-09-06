@@ -138,7 +138,8 @@ as an oracle without pretending the harnesses match.
 
 ## Multi-valued keys
 
-A key written more than once is UCL's ordinary way of spelling a list, and it
+A key written more than once is UCL's ordinary way of spelling a list — the
+engine's own README calls it "a multi-value key (implicit array)" — and it
 emits identically to an array literal:
 
 ```
@@ -147,44 +148,77 @@ listen = "b";
 ```
 
 The engine does not gather those into an array node. It threads them through
-the same `Next` chain it uses for everything else, so the node at `listen` *is*
-a string that happens to have siblings.
+the same `Next` chain it uses everywhere, so the node at `listen` *is* a string
+that happens to have siblings. Verified against the reference:
+`ucl_object_lookup` reports `type = string`, `ucl_array_size` reports 0, and
+`ucl_array_find_index` misses.
 
-Read naively, that made the two documents behave completely differently, and
-the dangerous direction was the common one: `String("listen")` returned `"a"`
-with `ok == true`, silently discarding the second value. A program reading
+### The hazard
+
+`ucl_object_tostring` returns a bare `const char *`. It has no channel to say
+"there are two values here", so it returns the first, and a C caller cannot
+detect the truncation from the return value. Our accessors inherited that
+exactly: `String("listen")` returned `"a"` with `ok == true`.
+
+That is the one wrong answer comma-ok cannot signal, because it is
+indistinguishable from correctly reading a single-valued key. A program reading
 `allowed_ip` that way enforces the first rule and drops the rest, with no error
-and no wrong-type signal — the exact failure comma-ok exists to prevent.
+and no wrong-type signal. So the accessors refuse a key holding more than one
+value. This is a deliberate divergence from `ucl_object_tostring`, and an
+allowed one: what a Go method named `String` does is not something a UCL
+document can observe. `compat/libucl` still returns the first, as the C does.
 
-The rule now is: **a node presents as a sequence exactly when it emits as one.**
-`Len` counts the values, `Index` and a numeric path segment address them, and
-every typed accessor refuses rather than returning one of several. A
-single-valued key is untouched, because its chain length is one, so existing
-correct reads keep working.
+### Two questions, not one
 
-`Kind` is the deliberate exception, and the reason is round-trip fidelity
-rather than pedantry. `Kind` reporting `string` for a repeated key and `array`
-for a literal is the *only* thing recording which form the author wrote.
-Reporting `array` for both would read better at the call site and would mean
-that reading a document and writing it back could rewrite the file into a shape
-its author did not choose. So `Kind` describes how the value was written, and
-everything else describes what it holds.
+How many values a key holds, and what is inside a container, are separate
+questions. The engine keeps them separate — its iterator either walks the chain
+or expands the container, chosen by a flag:
 
-Two implementation notes for anyone changing this:
+```
+ucl_object_iterate(n, &it, false)  ->  walks the values of the key
+ucl_object_iterate(n, &it, true)   ->  expands the container
+```
 
-* Values reached through `Values` or `Index` are marked as elements
-  (`Node.elem`). They are still chain members, so their `Next` points at their
-  siblings, and without the mark each would look like the head of a chain and
-  refuse to be read — making `Values` yield values that could not be used. This
-  was caught by the test suite rather than by inspection.
-* Path lookup tries the engine's walker first and only falls back to the
-  chain-aware walk when that misses. The fallback can therefore turn a miss
-  into a hit but can never change a path that already resolves, which is what
-  keeps the engine's own path semantics authoritative.
+`Values` and `Elements` are those two operations, and neither guesses which the
+caller meant.
 
-A real array node is excluded from all of this: it is already a sequence, and
-its elements rather than its chain are what it emits. The one case left
-inconsistent is a repeated key whose values are themselves arrays
-(`x = [1]; x = [2];`), where the C's emitter drops all but the first — verified
-against the reference. That is upstream data loss, reproduced faithfully, and
-not something this layer papers over.
+**An earlier version did guess**, picking the flag from the node's kind:
+expand if it is an array, else walk the chain. That reads well until a repeated
+key holds arrays:
+
+```
+x = [1];
+x = [2];
+```
+
+The node is an array, so it expanded the first one, and `[2]` became
+unreachable through the entire API — not by `Values`, `Index`, `Len` or any
+path. The C has both operations and loses nothing; we had one and lost a value.
+That is what decided the split.
+
+For the same reason `Len` and `Index` are container questions only, matching
+`ucl_array_size` and `ucl_array_find_index`. Making them count the chain
+conflated the two axes again, and hid the array case rather than fixing it.
+
+### Kind is deliberately not array
+
+`Kind` reports the node's own type — `string` for a repeated key, `array` for a
+literal. That is the only thing recording which form the author wrote, and the
+config emitter round-trips each faithfully. Reporting `array` for both would
+read better at the call site and would mean that reading a document and writing
+it back could rewrite the file into a shape its author did not choose.
+
+### Implementation note
+
+Values reached through `Values` are marked as elements (`Node.elem`). They are
+still chain members, so each still points at its siblings, and without the mark
+each would look like a multi-valued key and refuse to be read — making `Values`
+yield values that could not be used. The test suite caught that, not
+inspection.
+
+### Left alone
+
+A repeated key whose values are arrays emits as `{"x":[1]}` in JSON: the C
+drops all but the first. Recorded as finding #11, reproduced rather than
+fixed. The values are reachable through the API; it is only that emitter which
+loses them.

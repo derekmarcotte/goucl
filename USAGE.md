@@ -145,11 +145,15 @@ The zero `Node` and a nil `*Node` are both `KindInvalid`, and every method is
 safe to call on either. That is deliberate: a chain of lookups that misses
 returns a nil node, and calling `Kind()` or an accessor on it must not panic.
 
-`Node.Len()` reports the number of children — values for a repeated key, keys
-for an object, elements for an array, and 0 for every other scalar. Note that `compat/libucl`'s `Len` returns a
-*string's byte length*, because that is what the C does. Both are right in
-their own package; nothing in a UCL document depends on the Go spelling, so the
-idiomatic one follows `len()` on a map or slice.
+`Node.Len()` reports what a container holds — keys for an object, elements for
+an array, and 0 for everything else. It is a question about the value, not
+about how many values the key holds: a key written twice reports 0, and its
+values are reached with `Values`.
+
+Note that `compat/libucl`'s `Len` returns a *string's byte length*, because
+that is what the C does. Both are right in their own package; nothing in a UCL
+document depends on the Go spelling, so the idiomatic one follows `len()` on a
+map or slice.
 
 ## Paths
 
@@ -173,8 +177,9 @@ out-of-range index.
 
 Two limits worth knowing:
 
-* **A numeric segment indexes an array or a repeated key**, since the two are
-  the same document — see [Repeated keys are lists](#repeated-keys-are-lists).
+* **A numeric segment indexes an array, not a repeated key.** A key written
+  twice is not addressable by position; use `Values`. This matches
+  `ucl_array_find_index`, which reports nothing for one.
 * **A key containing a dot is not reachable by path.** `"a.b" = 1` and
   `a { b = 2 }` are different keys, and `Get("a.b")` finds the nested one.
   Use `All()` to reach a dotted key.
@@ -192,36 +197,34 @@ for key, v := range doc.All() {
 It yields nothing for any other kind, rather than panicking, so it is safe to
 call on a node you have not checked.
 
-`Values` ranges over an array's elements:
+`Values` yields every value a key holds, and `Elements` looks inside an array.
+They answer different questions, and neither guesses which you meant:
 
 ```go
-ports, _ := doc.Get("ports")
-for p := range ports.Values() {
+ports, _ := doc.Get("ports")     // ports = [80, 443]
+for p := range ports.Elements() {   // 80, then 443
 	n, _ := p.Int("")
-	// ...
+}
+for v := range ports.Values() {     // once: the array itself
+	// v.Kind() == KindArray
 }
 ```
 
 ### Repeated keys are lists
 
-A key given more than once forms an implicit array. This is UCL's normal way
-of writing a list, and these two documents are the same document:
+A key given more than once is UCL's normal way of writing a list, and these
+two documents emit identical JSON:
 
 ```
 listen = "10.0.0.1:80";      listen = ["10.0.0.1:80", "10.0.0.2:80"]
 listen = "10.0.0.2:80";
 ```
 
-Both emit `{"listen":["10.0.0.1:80","10.0.0.2:80"]}`, and both read the same
-way. A key holding more than one value is a sequence:
+`Values` reads either of them the same way, because a key written once yields
+one value and a key written twice yields two:
 
 ```go
 n, _ := doc.Get("listen")
-
-n.Len()              // 2
-n.Index(0)           // "10.0.0.1:80"
-doc.Get("listen.1")  // "10.0.0.2:80"
-
 for v := range n.Values() {
 	addr, _ := v.String("")
 }
@@ -230,47 +233,71 @@ for v := range n.Values() {
 **A typed accessor refuses a key that holds more than one value:**
 
 ```go
-addr, ok := doc.String("listen")   // "", false
+addr, ok := doc.String("listen")   // "", false when listen was written twice
 ```
 
-This is the one case where returning a value would be indistinguishable from
-a correct read, and getting it wrong is quiet and expensive — a program that
-reads `allowed_ip` with `String` and gets only the first of three rules has no
-way to notice. Use `Values` or `Index` for a key that may repeat.
+Returning the first would be indistinguishable from correctly reading a
+single-valued key, and getting it wrong is quiet and expensive — a program
+that reads `allowed_ip` with `String` and gets one of three rules has no way
+to notice. Use `Values` for a key that may repeat.
 
-A single-valued key is unaffected: its `Len()` is 0, it is not indexable, and
-the accessors read it normally. `Values` on it yields it once, because in UCL
-a lone value and a one-element implicit array are the same thing — which is
-what makes this correct for every key without a type switch:
+A single-valued key is unaffected, so ordinary reads keep working, and the
+nested loop below is correct for every key without a type switch:
 
 ```go
 for key, v := range doc.All() {
-	for elt := range v.Values() {
-		// runs once for a single value, N times for a repeated key
+	for value := range v.Values() {
+		// once for a single value, N times for a repeated key
 	}
 }
 ```
 
-`All` yields a repeated key **once**, as the whole sequence, not once per
-value.
+`All` yields a key **once**, however many values it holds. It walks the
+document's keys, not its values.
+
+### Why the two are separate
+
+Because collapsing them loses data. If `Values` looked inside an array when it
+found one, then for a repeated key whose values are arrays:
+
+```
+allow = [10];
+allow = [20];
+```
+
+it would expand the first and the second would be unreachable through the
+entire API. Keeping the questions apart makes it ordinary:
+
+```go
+for v := range n.Values() {        // [10], then [20]
+	for e := range v.Elements() {  // 10, then 20
+	}
+}
+```
+
+This is the engine's own split: its iterator either walks the values of a key
+or expands a container, chosen by a flag, and `Values` and `Elements` are those
+two operations. For the same reason `Len` and `Index` are container questions —
+a repeated key reports `Len() == 0` and is not indexable, matching
+`ucl_array_size` and `ucl_array_find_index`, which report nothing for it.
 
 ### Kind tells the two forms apart
 
-`Kind()` is the one place the two spellings differ, deliberately:
+`Kind()` is where the two spellings differ, deliberately:
 
 ```go
-// listen = "a"; listen = "b";      ->  KindString, Len 2
-// listen = ["a", "b"]              ->  KindArray,  Len 2
+// listen = "a"; listen = "b";      ->  KindString
+// listen = ["a", "b"]              ->  KindArray
 ```
 
-A repeated key reports the type of its values, not `KindArray`, because that
-is the only thing recording how the document was written. Re-emitting in the
+A repeated key reports the type of its values, not `KindArray`, because that is
+the only thing recording how the document was written. Re-emitting in the
 config format preserves each shape, so a document read and written back keeps
 the form its author chose. If `Kind` reported `KindArray` for both, that
 distinction would be gone and the round trip would rewrite the file.
 
-So: use `Kind` to learn how a value was written, and `Len`, `Index`, `Values`
-and the accessors to work with what it holds.
+So: `Kind` says how a value was written, `Values` says what the key holds, and
+`Elements`, `Len` and `Index` say what is inside a container.
 
 ## Comments
 

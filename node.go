@@ -3,7 +3,6 @@ package goucl
 import (
 	"iter"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/derekmarcotte/goucl/internal/core"
@@ -152,16 +151,27 @@ func (n *Node) Key() string {
 //	listen = "10.0.0.1:80";
 //	listen = "10.0.0.2:80";
 //
-// This is the ordinary way to write a list in UCL, and it emits as an array,
-// identically to listen = ["10.0.0.1:80", "10.0.0.2:80"]. So a node presents
-// as a sequence exactly when it emits as one: Len counts it, Index and a
-// numeric path segment address it, and the typed accessors refuse it rather
-// than silently returning the first of several values.
+// This is the ordinary way to write a list in UCL, and it emits as an array.
 //
-// Kind is the deliberate exception. It keeps reporting the node's own type --
-// string above, not array -- because that is the only thing distinguishing a
-// repeated key from an array literal, and losing it would mean re-emitting a
-// document in a shape its author did not write.
+// How many values a key holds and what is inside a container are two separate
+// questions, and the engine keeps them separate: its iterator either walks the
+// chain or expands the container, chosen by a flag. Values and Elements are
+// those two operations, and neither guesses which the caller meant.
+//
+// Collapsing them is a mistake worth not repeating. If Values expands an array
+// when it finds one, then for a repeated key whose values are arrays --
+// x = [1]; x = [2]; -- it expands the first and the second becomes
+// unreachable through the whole API.
+//
+// The typed accessors refuse a key holding more than one value, because
+// returning the first is indistinguishable from correctly reading a
+// single-valued key. Len and Index stay container operations, matching
+// ucl_array_size and ucl_array_find_index, which report nothing for a chain.
+//
+// Kind reports the node's own type -- string above, not array -- because that
+// is the only thing distinguishing a repeated key from an array literal, and
+// losing it would mean re-emitting a document in a shape its author did not
+// write.
 
 // chainLen counts the values a key holds: 1 for an ordinary key, more for a
 // repeated one.
@@ -176,41 +186,28 @@ func (n *Node) chainLen() int {
 	return count
 }
 
-// chainAt returns the i'th value of a repeated key.
-func (n *Node) chainAt(i int) *core.Object {
-	if i < 0 {
-		return nil
-	}
-	for cur := n.obj; cur != nil; cur = cur.Next {
-		if i == 0 {
-			return cur
-		}
-		i--
-	}
-	return nil
-}
-
-// multi reports whether this key holds more than one value, and so presents as
-// a sequence. A real array is excluded: it is already a sequence in its own
-// right, and its elements, not the chain, are what it emits.
+// multi reports whether this key holds more than one value. Unlike the
+// container questions below, this one is about the key, not the value, so it
+// applies whatever kind the values are.
 func (n *Node) multi() bool {
 	if n == nil || n.elem {
 		return false
 	}
-	return n.Kind() != KindArray && n.chainLen() > 1
+	return n.chainLen() > 1
 }
 
-// Len reports the number of children: values for a repeated key, keys for an
-// object, elements for an array, and 0 for every other scalar.
+// Len reports the number of children a container holds: keys for an object,
+// elements for an array, and 0 for everything else.
+//
+// It is a question about this value, not about how many values the key holds.
+// A key written twice reports 0 here, as ucl_array_size does for a chain; use
+// Values to reach them.
 //
 // This deliberately differs from the compatibility layer's Len, which returns
 // a string's byte length because that is what the C does. Nothing in a UCL
 // document depends on the Go spelling, so this one follows len() on a map or
 // slice instead.
 func (n *Node) Len() int {
-	if n.multi() {
-		return n.chainLen()
-	}
 	switch n.Kind() {
 	case KindObject:
 		count := 0
@@ -237,55 +234,19 @@ func (n *Node) Get(path string) (*Node, bool) {
 	if path == "" {
 		return n, true
 	}
-	if found := n.obj.LookupPath(path); found != nil {
-		return n.wrap(found), true
-	}
-	// The engine's path walker indexes real arrays only, so a numeric segment
-	// against a repeated key misses. Retrying here is strictly additive: it
-	// runs only where the walk above already failed, so no path that resolves
-	// today can resolve differently.
-	return n.lookupThroughChains(path)
-}
-
-// lookupThroughChains walks a path a segment at a time, letting a numeric
-// segment address a repeated key as well as an array.
-func (n *Node) lookupThroughChains(path string) (*Node, bool) {
-	cur := n
-	for _, seg := range strings.Split(path, ".") {
-		if seg == "" {
-			continue // the engine's walker skips empty segments too
-		}
-		if i, err := strconv.Atoi(seg); err == nil {
-			if next, ok := cur.Index(i); ok {
-				cur = next
-				continue
-			}
-		}
-		next := cur.obj.LookupLen([]byte(seg))
-		if next == nil {
-			return nil, false
-		}
-		cur = cur.wrap(next)
-	}
-	if cur == n {
+	found := n.obj.LookupPath(path)
+	if found == nil {
 		return nil, false
 	}
-	return cur, true
+	return n.wrap(found), true
 }
 
-// Index returns the i'th element of an array, or the i'th value of a repeated
-// key.
+// Index returns the i'th element of an array.
+//
+// A numeric segment addresses an array, not a repeated key, matching
+// ucl_array_find_index. Use Values for a key written more than once.
 func (n *Node) Index(i int) (*Node, bool) {
-	if i < 0 {
-		return nil, false
-	}
-	if n.multi() {
-		if elt := n.chainAt(i); elt != nil {
-			return n.wrapElem(elt), true
-		}
-		return nil, false
-	}
-	if n.Kind() != KindArray {
+	if n.Kind() != KindArray || i < 0 {
 		return nil, false
 	}
 	elt := core.ArrayFindIndex(n.obj, uint32(i))
@@ -298,12 +259,13 @@ func (n *Node) Index(i int) (*Node, bool) {
 // All iterates an object's keys in insertion order. It yields nothing for any
 // other kind.
 //
-// A key given more than once in a document forms an implicit array, and is
-// yielded once, as the head of that chain. Range over the value's Values to
-// reach the rest:
+// A key is yielded once however many values it holds, so this is a walk of
+// the document's keys rather than of its values. Range the value's Values to
+// reach them, which reads the same whether the key was written once or
+// several times:
 //
 //	for key, v := range doc.All() {
-//		for elt := range v.Values() {
+//		for value := range v.Values() {
 //			...
 //		}
 //	}
@@ -321,29 +283,46 @@ func (n *Node) All() iter.Seq2[string, *Node] {
 	}
 }
 
-// Values iterates an array's elements, or the implicit array a repeated key
-// forms. Anything else yields itself once, because in UCL a lone value and a
-// one-element implicit array are the same thing.
+// Values iterates every value the key holds.
 //
-// Both walks are the engine's. Its iterator expands a container when asked and
-// otherwise walks the implicit chain, which is exactly the distinction here,
-// so neither traversal is reimplemented.
+// A key written once yields one value, whatever kind it is; a key written
+// several times yields each of them, in document order. This is the engine's
+// chain walk, so it never looks inside a value: a key whose value is an array
+// yields that array, not its elements. Use Elements for those.
+//
+//	listen = "10.0.0.1:80";     ->  two values
+//	listen = "10.0.0.2:80";
+//
+//	ports = [80, 443]           ->  one value, an array
 func (n *Node) Values() iter.Seq[*Node] {
 	return func(yield func(*Node) bool) {
 		if n == nil || n.obj == nil {
 			return
 		}
-		// An array yields its own elements; anything else yields the values
-		// of the chain, which are marked as elements so that reading one
-		// does not see its siblings and refuse.
-		expand := n.Kind() == KindArray
-		wrap := n.wrapElem
-		if expand {
-			wrap = n.wrap
+		// The values are marked as elements: each is still a member of the
+		// chain, so its own successor pointer is set, and without the mark
+		// each would look like a multi-valued key and refuse to be read.
+		var it core.Iter
+		for elt := core.Iterate(n.obj, &it, false); elt != nil; elt = core.Iterate(n.obj, &it, false) {
+			if !yield(n.wrapElem(elt)) {
+				return
+			}
+		}
+	}
+}
+
+// Elements iterates an array's elements. It yields nothing for any other kind,
+// including a repeated key, whose values are reached with Values.
+//
+//	ports = [80, 443]           ->  80, then 443
+func (n *Node) Elements() iter.Seq[*Node] {
+	return func(yield func(*Node) bool) {
+		if n.Kind() != KindArray {
+			return
 		}
 		var it core.Iter
-		for elt := core.Iterate(n.obj, &it, expand); elt != nil; elt = core.Iterate(n.obj, &it, expand) {
-			if !yield(wrap(elt)) {
+		for elt := core.Iterate(n.obj, &it, true); elt != nil; elt = core.Iterate(n.obj, &it, true) {
+			if !yield(n.wrap(elt)) {
 				return
 			}
 		}
