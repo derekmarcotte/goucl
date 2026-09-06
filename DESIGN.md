@@ -81,11 +81,16 @@ some of these conventions.
 
 The interesting work is here, because serializers do not face it:
 
-* **Includes are a security surface, not a convenience.** `docs/findings.md` #1
-  records that a relative `.include` resolves against the *process working
-  directory*, not the including file's directory. In a program reading
-  semi-trusted configuration that is a footgun. Fixing it by construction is
-  the single most valuable decision available (§6.2).
+* **Includes reach the filesystem, and resolve surprisingly.**
+  `docs/findings.md` #1 records that a relative `.include` resolves against the
+  *process working directory*, not the including file's directory.
+
+  This section originally called that "a security surface, not a convenience"
+  and proposed fixing it by construction. That was the wrong reading. It is
+  behaviour a UCL document can observe, which makes it the language rather than
+  a defect, and it is replicated (§6.2). What is left for this layer is not a
+  fix but an option: a caller who wants a sandbox can be given one, because an
+  option changes no default.
 * **Priorities and duplicate-merge strategies** are layered-configuration
   semantics — closer to koanf or viper than to a serializer.
 * **Macros and variable expansion** need user-extensible hooks that can fail.

@@ -9,9 +9,26 @@ Three packages:
 
 | | |
 |---|---|
+| (root) | the idiomatic Go API — read a document, walk it, emit it |
 | `compat/libucl` | drop-in for `github.com/mitchellh/go-libucl`, package `libucl` |
 | `internal/core` | the C-mirror engine the other two are built on |
-| (root) | the idiomatic Go API — **in progress**, see [`DESIGN.md`](DESIGN.md) |
+
+```go
+doc, err := goucl.ParseFile("app.conf")
+host, ok := doc.String("server.host")
+port, ok := doc.Int("server.port")
+
+for key, v := range doc.All() {
+	// ...
+}
+```
+
+The root package can parse, navigate and emit, with comments preserved through
+a config round trip and structured errors carrying a position and a source
+excerpt. `Marshal`, `Unmarshal`, `Encoder`, `Decoder` and the parser options
+are not written yet; [`DESIGN.md`](DESIGN.md) says what is settled and what is
+still intent. Callers who need those today have the full engine behaviour
+through `compat/libucl`.
 
 Status: the port is **feature complete** and proven against the C. See
 [`docs/`](docs/) for the decision record, implementation notes and extracted C

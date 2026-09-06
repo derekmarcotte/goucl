@@ -17,9 +17,13 @@ The rule the entries follow: reproduce upstream bugs bug-for-bug, because
 callers and goldens depend on them, **except** where a bug produces a wrong
 answer or a crash. Four have been fixed here and reported upstream.
 
-[`../DESIGN.md`](../DESIGN.md) sits outside this hierarchy on purpose: it is a
-forward-looking proposal for an idiomatic API, not a record of what exists, so
-it carries no authority over the code.
+[`../DESIGN.md`](../DESIGN.md) is the design of the idiomatic API and the
+register of its decisions. It began as a forward-looking proposal carrying no
+authority over the code; it is now partly built against, and each of its
+decisions is marked settled or not. Where building something proved the
+proposal wrong, the section says so rather than being quietly rewritten, so it
+doubles as the record of what was learned. Treat a section marked settled as
+authoritative and the rest as intent.
 
 ## 2. Implementation notes — how this port is built
 
@@ -27,7 +31,8 @@ it carries no authority over the code.
 naming decisions, quirks reproduced on purpose, things that surprised the
 author, and what was left out.
 
-`compat.md`, `emitter.md`, `msgpack.md`, `parser.md`, `schema.md`, `sexp.md`,
+`compat.md`, `emitter.md`, `idiomatic.md`, `msgpack.md`, `parser.md`,
+`schema.md`, `sexp.md`,
 plus [`notes/compat-plan.md`](notes/compat-plan.md), the design of the
 drop-in shim and why it is built from defined types rather than aliases or
 wrappers.

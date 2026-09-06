@@ -20,6 +20,13 @@ not-found path is what got recorded.
 **Decision: replicate.** It is observable and fixtures depend on it.
 `tools/gen-goldens.sh` pins the cwd for this reason.
 
+**Applies to every layer, including the idiomatic one.** `DESIGN.md` originally
+proposed re-rooting includes at an `fs.FS` in the new API, on the grounds that
+this is a footgun. That was rejected: behaviour a UCL document can observe is
+the language, not a defect to design around, so a document that works under the
+C works identically here. An opt-in sandbox remains possible, because an option
+changes no default. See `DESIGN.md` §6.2.
+
 ## 2. `-M` (UCL_PARSER_DISABLE_MACRO) never reached its own skip path
 
 The flag is documented as "Treat macros as comments", and
