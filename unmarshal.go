@@ -42,21 +42,29 @@ func newDecodeError(path, format string, args ...any) *DecodeError {
 // Unmarshal parses a UCL document and stores the result in the value pointed
 // to by v.
 //
+// opts is the same Option Parse takes -- WithVariable and WithMacro apply to
+// the parse, and DisallowUnknownFields to the decode that follows it.
+//
 // A parse failure returns the *SyntaxError Parse would have produced, so
 // errors.As against it still succeeds. A failure decoding an otherwise valid
 // document into v returns a *DecodeError instead.
-func Unmarshal(data []byte, v any) error {
-	n, err := Parse(data)
+func Unmarshal(data []byte, v any, opts ...Option) error {
+	n, err := Parse(data, opts...)
 	if err != nil {
 		return err
 	}
-	_, err = decodeInto(n, v, false)
+	_, err = decodeInto(n, v, newParseConfig(opts).strict)
 	return err
 }
 
 // Decode stores the node's value in the value pointed to by v.
-func (n *Node) Decode(v any) error {
-	_, err := decodeInto(n, v, false)
+//
+// opts is the same Option Parse and Unmarshal take, for symmetry, but a Node
+// has already been parsed, so WithVariable and WithMacro have nothing left
+// to act on and are silently ignored here; only DisallowUnknownFields has an
+// effect.
+func (n *Node) Decode(v any, opts ...Option) error {
+	_, err := decodeInto(n, v, newParseConfig(opts).strict)
 	return err
 }
 

@@ -25,15 +25,25 @@ const parserFlags = core.ParserSaveComments
 // document does here. See docs/findings.md item 1.
 //
 // A failed parse returns a *SyntaxError carrying the position and an excerpt.
-func Parse(data []byte) (*Node, error) {
+//
+// opts may register variables and macros before the document is parsed, and
+// a macro that reports failure (see MacroFunc) turns the parse into an
+// error, even though the engine's own error state does not record one -- see
+// the comment on (*parseConfig).applyToParser.
+func Parse(data []byte, opts ...Option) (*Node, error) {
+	cfg := newParseConfig(opts)
 	p := core.NewParser(parserFlags)
+	macroErr := cfg.applyToParser(p)
 	p.AddChunk(data)
+	if err := macroErr(); err != nil {
+		return nil, macroSyntaxError(p, data, "", err)
+	}
 	return finish(p, data, "")
 }
 
 // ParseString reads a UCL document from a string.
-func ParseString(s string) (*Node, error) {
-	return Parse([]byte(s))
+func ParseString(s string, opts ...Option) (*Node, error) {
+	return Parse([]byte(s), opts...)
 }
 
 // ParseFile reads a UCL document from a file.
@@ -42,13 +52,19 @@ func ParseString(s string) (*Node, error) {
 // is what sets the document's file variables ($FILENAME and $CURDIR) and the
 // base path an .include is reported against. Reading the bytes separately and
 // parsing them as a chunk would quietly change what the document means.
-func ParseFile(name string) (*Node, error) {
+func ParseFile(name string, opts ...Option) (*Node, error) {
+	cfg := newParseConfig(opts)
 	p := core.NewParser(parserFlags)
+	macroErr := cfg.applyToParser(p)
 	p.AddFile(name)
 
 	// Read separately, for the error excerpt. On the success path a failure
 	// here costs only the excerpt, which is never used.
 	src, readErr := os.ReadFile(name)
+
+	if err := macroErr(); err != nil {
+		return nil, macroSyntaxError(p, src, name, err)
+	}
 
 	node, err := finish(p, src, name)
 	if err != nil && readErr != nil {
@@ -97,4 +113,20 @@ func finish(p *core.Parser, src []byte, file string) (*Node, error) {
 		}
 	}
 	return &Node{obj: obj, comments: p.GetComments()}, nil
+}
+
+// macroSyntaxError builds the *SyntaxError reported when a WithMacro handler
+// fails. Line and column come from the parser, which still holds the
+// position the macro was invoked at even though it recorded no error of its
+// own there; Code is ErrMacro since -- unlike an engine-classified failure --
+// this one really is a macro error, not merely a document that reported none.
+func macroSyntaxError(p *core.Parser, src []byte, file string, cause error) *SyntaxError {
+	return &SyntaxError{
+		File:    file,
+		Line:    p.LineNum(),
+		Column:  p.Column(),
+		Code:    ErrMacro,
+		Message: "goucl: " + cause.Error(),
+		src:     src,
+	}
 }
