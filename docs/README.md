@@ -32,10 +32,16 @@ naming decisions, quirks reproduced on purpose, things that surprised the
 author, and what was left out.
 
 `compat.md`, `emitter.md`, `idiomatic.md`, `msgpack.md`, `parser.md`,
-`schema.md`, `sexp.md`,
+`schema.md`, `sexp.md`, and `performance.md`,
 plus [`notes/compat-plan.md`](notes/compat-plan.md), the design of the
 drop-in shim and why it is built from defined types rather than aliases or
 wrappers.
+
+[`notes/comparison.md`](notes/comparison.md) sits slightly apart from the
+rest: it compares this API with other Go configuration libraries, so it is
+the one note whose claims are about **other people's** code. It records the
+versions it checked and says plainly that there is no oracle to re-run them
+against, unlike everything else here.
 
 These describe *our* code, so they go stale when it changes. They defer to
 `findings.md` on divergences rather than restating them, precisely so the two
