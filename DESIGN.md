@@ -1,11 +1,16 @@
 # Design: an idiomatic Go UCL library
 
-**Status: proposal. No code has been written against it.** Everything here is
-cheap to change now and expensive to change later, which is the point of
-writing it down first.
+**Status: being built.** The restructure in §5 is done: the engine moved to
+`internal/core` and the drop-in to `compat/libucl`. The idiomatic surface
+itself — §7's sketch — is not written yet.
 
-This describes a possible next phase for the port. The current library is
-feature complete and passing; nothing here is required to use it.
+The decisions in §6 have been settled, but **only §10's module path is marked
+as such below**; §6.1–§6.4 still read as open questions and are yet to be
+amended. Until that pass lands, this document is not a reliable record of what
+was decided.
+
+The current library is feature complete and passing; nothing here is required
+to use it.
 
 ---
 

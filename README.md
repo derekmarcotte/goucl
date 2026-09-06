@@ -1,15 +1,21 @@
 # goucl — pure-Go UCL (Universal Configuration Language)
 
-Package `goucl` is a pure-Go implementation of [libucl](https://github.com/vstakhov/libucl) v0.9.4,
-intended as a drop-in replacement for the cgo binding
-[`github.com/mitchellh/go-libucl`](https://github.com/mitchellh/go-libucl) — so
-dependents can drop the C dependency with an import-path swap.
+`github.com/derekmarcotte/goucl` is a pure-Go implementation of
+[libucl](https://github.com/vstakhov/libucl) v0.9.4, so dependents of the cgo
+binding [`github.com/mitchellh/go-libucl`](https://github.com/mitchellh/go-libucl)
+can drop the C dependency with an import-path swap.
 
-Status: **feature complete.** See [`docs/`](docs/) for the decision record,
-implementation notes and extracted C behaviour.
+Three packages:
 
-[`DESIGN.md`](DESIGN.md) proposes a next phase: an idiomatic Go API alongside
-the drop-in compatibility layer. It is a proposal with no code behind it.
+| | |
+|---|---|
+| `compat/libucl` | drop-in for `github.com/mitchellh/go-libucl`, package `libucl` |
+| `internal/core` | the C-mirror engine the other two are built on |
+| (root) | the idiomatic Go API — **in progress**, see [`DESIGN.md`](DESIGN.md) |
+
+Status: the port is **feature complete** and proven against the C. See
+[`docs/`](docs/) for the decision record, implementation notes and extracted C
+behaviour.
 
 ## Scope
 
@@ -21,8 +27,8 @@ validation, MessagePack read/write, and canonical S-expressions.
 
 Correctness is proven against the C implementation, not asserted:
 
-* `testdata/basic/` holds libucl's own fixtures, copied verbatim, plus two this
-  project contributed back upstream.
+* `internal/core/testdata/basic/` holds libucl's own fixtures, copied
+  verbatim, plus two this project contributed back upstream.
 * `tools/gen-goldens.sh` regenerates goldens from the compiled C library.
   Upstream diffs only the *config* emitter and sends the other five modes to
   /dev/null without checking their exit status; we pin all six against
@@ -50,8 +56,9 @@ cd ../goucl && ./tools/gen-goldens.sh
 ```
 
 Once those land upstream, plain `master` will do.
+
 ## Licence
 
 This project is a port of libucl and is distributed under the same BSD-2-clause
-terms; see `NOTICE-libucl`. Test fixtures under `testdata/` are copied verbatim
-from the libucl distribution.
+terms; see `NOTICE-libucl`. Test fixtures under `internal/core/testdata/` are
+copied verbatim from the libucl distribution.
