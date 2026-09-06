@@ -328,9 +328,43 @@ a forced upgrade. Both can be used in one program.
   currently cover the four text formats and nothing else, so all three stay
   lower-level entry points for now. This was chosen because it is the
   reversible order: adding `FormatMsgPack`, or a schema package, breaks
-  nobody later, while shipping a surface and withdrawing it does. Nothing
-  about the decision has been made easier or harder by the work above; it is
-  still a question, and it is still open.
+  nobody later, while shipping a surface and withdrawing it does. It is still
+  a question, and it is still open — but there is now one piece of evidence,
+  below.
+
+  **Evidence: the `ucl-tool` spike.** libucl ships `utils/ucl-tool.c`, a
+  converter taking `--in`, `--out`, `--schema` and `--format`. A Go port of it
+  was written as a throwaway experiment and then reverted; it is not in the
+  tree. What it showed is worth keeping:
+
+  * It is cheap. 152 lines, compiled first try, and byte-identical to the C
+    tool on **112 of 112** conversions — 28 fixtures from
+    `internal/core/testdata/basic` across all four text formats. Error
+    messages match the C verbatim, including the schema failure text.
+  * The nine msgpack outputs that differ are all finding #8, not new bugs.
+    Confirmed rather than assumed: feeding each tool's msgpack back through
+    the *C's own* decoder rejects the C tool's output with `incomplete
+    container` on all nine and accepts this port's on all nine. `1.in` is the
+    clean case — twelve duplicate `key1` entries collapse to one key, and the
+    C writes a twelve-pair map header into a twelve-byte file.
+  * **It could not be written against the idiomatic package.** It needs
+    MessagePack, schema validation, and the parser flags the C tool uses
+    (`NO_FILEVARS|DISABLE_MACRO`) — none of which the root package exposes.
+    It was written against `internal/core`, which a command inside the module
+    may do.
+
+  So the first real consumer reached past the idiomatic surface for all three
+  deferred items at once. That is not conclusive: a tool inside this module is
+  a privileged consumer, and the honest reading is one data point rather than
+  a settled answer. But if the goal is that someone *outside* the module could
+  write this tool, the answer is no longer "deferred".
+
+  A related caution, if this is ever revisited for config migration: the C
+  tool parses with `DISABLE_MACRO`, which silently **drops** includes rather
+  than expanding them. A document with `.include "common.conf"` converts to
+  output missing that data entirely. Faithfully reproduced in the spike, and a
+  reason `ucl-tool` is a converter and not a starting point for anything that
+  rewrites configuration files.
 * **`WithFS`, the opt-in include sandbox.** §6.2 settled that includes resolve
   as libucl's do and that re-rooting them by default was wrong. An option
   changes no default, so a sandbox remains possible, but it needs the engine
