@@ -11,8 +11,15 @@
 // Development inside this repository resolves the requirement below against
 // the working tree, via the go.work at the repository root, so the pinned
 // version does not have to exist yet.
+//
+// This module is versioned independently of the one it requires, and the two
+// say different things. Its own API is frozen: it reproduces the API of the
+// cgo binding, so changing it would defeat the only reason it exists. The
+// main module is still v0 because the idiomatic API it offers may yet change.
+// Depending on a v0 costs this module nothing, because the only thing it uses
+// from it is internal/core, which no consumer of either module can see.
 module github.com/derekmarcotte/goucl/compat/libucl
 
 go 1.23
 
-require github.com/derekmarcotte/goucl v1.0.0
+require github.com/derekmarcotte/goucl v0.1.0

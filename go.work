@@ -4,6 +4,12 @@
 //
 // A workspace file is ignored when either module is consumed as a dependency,
 // so this affects development in this repository only.
+//
+// Building, testing, vetting and `go doc` all work offline against the
+// working tree. Commands that load the whole module graph, `go list -m all`
+// among them, still try to resolve the pinned version and will fail until the
+// main module has been pushed and tagged. That resolves itself on the first
+// push; nothing needs changing here when it does.
 go 1.23
 
 use (
