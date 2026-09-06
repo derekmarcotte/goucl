@@ -1,15 +1,17 @@
 # Design: an idiomatic Go UCL library
 
-**Status: being built.** §5's restructure is done, and §6's decisions are all
-settled and marked below. The tree, the parser entry points, the emitters and
-the error type exist; `Marshal`, `Unmarshal`, `Encoder`, `Decoder` and the
-options in §7's sketch do not yet.
+**Status: built.** §5's restructure is done, §6's decisions are all settled
+and marked below, and §7's sketch is now code: `Marshal`, `Unmarshal`,
+`Encoder`, `Decoder` and the options all exist and are tested. What remains
+unbuilt is listed in §10, and each item there is an addition rather than a
+gap.
 
 Where building something corrected this document, the section says so rather
 than quietly reading as though it were always right. §6.1 assumed yaml.v3's
 three comment positions and UCL has two; §6.2 recommended re-rooting includes
 and that was wrong; §6.4's sketch includes a per-node position the engine
-cannot supply.
+cannot supply; §7's single `Option` type became two, for the reason given
+there.
 
 The current library is feature complete and passing; nothing here is required
 to use it.
@@ -259,6 +261,43 @@ func (n *Node) Get(path string) (*Node, bool)
 func (n *Node) All() iter.Seq2[string, *Node]
 ```
 
+
+### What was built, and where it differs
+
+The sketch above is left as written, because the differences are the
+interesting part.
+
+**One `Option` type became two.** `Option` configures parsing and decoding;
+`EncodeOption` configures encoding. With a single type,
+`NewEncoder(w, DisallowUnknownFields())` compiles and silently does nothing.
+Two types make it a compile error. The sketch calls itself illustrative, and
+this is the case where taking it literally would have cost something real.
+
+**The parse entry points took the options variadically** rather than growing
+a second `ParseWith`/`ParseStringWith`/`ParseFileWith` family. Appending a
+variadic parameter is source-compatible, which the existing tests proved by
+continuing to compile and pass unmodified.
+
+**`Undecoded` returns `[]string`, not `[]Path`.** The paths are the dotted
+spelling `Node.Get` already accepts, so a caller can feed one straight back
+in. A `Path` type would have been a second spelling of the same thing.
+
+**`MacroFunc` returns an error, and the engine cannot report one.** In the C
+a macro handler returning false aborts the chunk, records no error, and
+leaves an empty document behind -- and the one signal it does give, the add
+call's return value, is the signal this package had already decided not to
+trust. `WithMacro` therefore captures the error above the engine and the
+parse entry points turn it into a `*SyntaxError` with `ErrMacro`. See
+`docs/notes/idiomatic.md`.
+
+**A second error type was needed.** §6.5 settles what a *parse* failure looks
+like. A document that parsed cleanly but does not fit the Go shape asked of
+it is a different failure, and it returns a `*DecodeError` carrying the
+dotted path, a message, and an unwrappable cause.
+
+**`WithFS` was not built.** §6.2 settled that includes resolve as libucl's do,
+leaving a sandbox as a possible opt-in; that needs include interception in
+the engine, so it stays in §10.
 ## 8. Migration
 
 The existing application changes nothing: `compat/libucl` keeps the current
@@ -283,8 +322,18 @@ a forced upgrade. Both can be used in one program.
 
 * **Settled: the module path is `github.com/derekmarcotte/goucl`.** The import
   paths in §5 follow from it.
-* Whether the schema validator belongs in the root package, its own package, or
-  stays where it is.
-* Whether MessagePack and S-expressions are part of the idiomatic surface or
-  remain lower-level entry points.
 * **Settled: the minimum Go version is 1.23**, for `iter.Seq2`.
+* **Deferred, not settled: whether the schema validator, MessagePack and
+  S-expressions join the idiomatic surface.** `Format` and `EncodeOption`
+  currently cover the four text formats and nothing else, so all three stay
+  lower-level entry points for now. This was chosen because it is the
+  reversible order: adding `FormatMsgPack`, or a schema package, breaks
+  nobody later, while shipping a surface and withdrawing it does. Nothing
+  about the decision has been made easier or harder by the work above; it is
+  still a question, and it is still open.
+* **`WithFS`, the opt-in include sandbox.** §6.2 settled that includes resolve
+  as libucl's do and that re-rooting them by default was wrong. An option
+  changes no default, so a sandbox remains possible, but it needs the engine
+  to expose include interception. Not built.
+* **Whether `Get[T]` generics join the comma-ok accessors.** §6.3 deferred
+  this deliberately and nothing since has argued either way.
