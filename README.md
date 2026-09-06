@@ -25,10 +25,13 @@ for key, v := range doc.All() {
 
 The root package can parse, navigate and emit, with comments preserved through
 a config round trip and structured errors carrying a position and a source
-excerpt. `Marshal`, `Unmarshal`, `Encoder`, `Decoder` and the parser options
-are not written yet; [`DESIGN.md`](DESIGN.md) says what is settled and what is
-still intent. Callers who need those today have the full engine behaviour
-through `compat/libucl`.
+excerpt. It also decodes and encodes Go values directly — `Marshal`,
+`Unmarshal`, `Encoder`, `Decoder`, and options such as `WithVariable`,
+`WithMacro` and `DisallowUnknownFields` — so a struct can be the shape a
+document is read into rather than a tree walked by hand. See
+[`USAGE.md`](USAGE.md) for how, and [`DESIGN.md`](DESIGN.md) for what is
+settled and what is still intent. Callers who need generic accessors, tree
+construction, or the full engine behaviour today have `compat/libucl`.
 
 Status: the port is **feature complete** and proven against the C. See
 [`docs/`](docs/) for the decision record, implementation notes and extracted C

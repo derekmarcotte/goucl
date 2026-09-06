@@ -54,10 +54,14 @@ func main() {
 Three entry points, all returning the document's root `*Node`:
 
 ```go
-func Parse(data []byte) (*Node, error)
-func ParseString(s string) (*Node, error)
-func ParseFile(name string) (*Node, error)
+func Parse(data []byte, opts ...Option) (*Node, error)
+func ParseString(s string, opts ...Option) (*Node, error)
+func ParseFile(name string, opts ...Option) (*Node, error)
 ```
+
+`opts` registers variables and macros before the document is parsed; see
+[Options](#options) below. All three are source-compatible with a call
+written before options existed — `Parse(data)` still compiles.
 
 `ParseFile` is not `Parse(os.ReadFile(...))`. The engine opens the file itself,
 because opening it is what sets the document's `$FILENAME` and `$CURDIR`
@@ -299,6 +303,185 @@ distinction would be gone and the round trip would rewrite the file.
 So: `Kind` says how a value was written, `Values` says what the key holds, and
 `Elements`, `Len` and `Index` say what is inside a container.
 
+## Decoding into structs
+
+`Get` and the typed accessors are for reading a handful of values out of a
+document you mostly navigate by hand. When the shape of the whole document is
+known ahead of time, a struct says that shape once and `Unmarshal` fills it:
+
+```go
+type Server struct {
+	Host        string        `ucl:"host"`
+	Port        int           `ucl:"port"`
+	IdleTimeout time.Duration `ucl:"idle_timeout"`
+}
+
+type Config struct {
+	Server Server   `ucl:"server"`
+	Listen []string `ucl:"listen"`
+}
+
+var cfg Config
+err := goucl.Unmarshal(data, &cfg)
+```
+
+```go
+func Unmarshal(data []byte, v any, opts ...Option) error
+func (n *Node) Decode(v any, opts ...Option) error
+```
+
+`Unmarshal` is `Parse` followed by `Decode` on the result. Call `Decode`
+directly when you already have a `*Node` — after `Get`ing a subtree, say, or
+when the same document is decoded into more than one shape.
+
+### Struct tags
+
+A field's UCL name comes from a `ucl` tag, falling back to a `json` tag when
+there is no `ucl` one, and finally to the Go field name itself:
+
+```go
+Host string `ucl:"host"`        // reads "host"
+Host string `json:"host"`       // reads "host" too, no ucl tag present
+Host string                     // reads "Host"
+```
+
+`,omitempty` is honoured on `Marshal` the same way `encoding/json` honours
+it, `-` skips the field in both directions, and an unexported field is never
+looked at. Falling back to `json` rather than inventing a third tag means a
+struct already tagged for `encoding/json` decodes UCL with no changes; add a
+`ucl` tag only where the two formats should disagree on a name.
+
+### Embedded fields are promoted
+
+An anonymous struct field is flattened into its parent, exactly as
+`encoding/json` flattens it — the embedding is invisible in the document:
+
+```go
+type Base struct {
+	Name string `ucl:"name"`
+}
+type Derived struct {
+	Base
+	Extra string `ucl:"extra"`
+}
+```
+
+```
+name = "x";
+extra = "y";
+```
+
+decodes into a `Derived` with both fields set, not into `Derived.Base.Name`.
+Give the embedded field its own tag and it stops flattening, becoming an
+ordinary nested field named by the tag instead. Where two embeddings would
+promote the same name, the field at the shallower depth wins; at equal depth,
+one explicit tag among the candidates wins; otherwise every conflicting field
+is dropped rather than guessed at.
+
+One consequence of matching `encoding/json` exactly is also one of its own
+limitations: a nil embedded *pointer* to an **unexported** struct type cannot
+be allocated during decode, because the field holding the pointer is itself
+unexported and `reflect` refuses to set it even though the struct behind it
+has exported fields of its own. That decodes as an error, not a panic.
+
+### Repeated keys become slices
+
+`Unmarshal` follows the same rule as `Values` (see [Repeated keys are
+lists](#repeated-keys-are-lists) above): a key written more than once fills a
+slice, one element per value —
+
+```go
+type doc struct {
+	Listen []string `ucl:"listen"`
+}
+```
+
+```
+listen = "10.0.0.1:80";
+listen = "10.0.0.2:80";
+```
+
+decodes to `Listen: []string{"10.0.0.1:80", "10.0.0.2:80"}` — but decoding
+the same document into a `string` field is a `*DecodeError`, deliberately.
+Returning the first value would be indistinguishable from correctly reading a
+key that was only ever written once, which is exactly the wrong answer the
+typed accessors were built to refuse.
+
+### Strict mode and undecoded keys
+
+By default an object key with no matching struct field is simply left out —
+not an error, because a document is often shared with other consumers or
+grows fields over time. It is still tracked, and `(*Decoder).Undecoded`
+returns it:
+
+```go
+dec := goucl.NewDecoder(r)
+if err := dec.Decode(&cfg); err != nil {
+	return err
+}
+for _, path := range dec.Undecoded() {
+	log.Printf("unrecognised key: %s", path)
+}
+```
+
+Paths are dotted, in the same spelling `Node.Get` accepts, and reflect only
+the most recent `Decode`. `DisallowUnknownFields` turns the same condition
+into an error instead, for a program that would rather fail closed on an
+unrecognised key than silently ignore it:
+
+```go
+err := goucl.Unmarshal(data, &cfg, goucl.DisallowUnknownFields())
+```
+
+### `Decoder`
+
+```go
+func NewDecoder(r io.Reader, opts ...Option) *Decoder
+func (d *Decoder) Decode(v any) error
+func (d *Decoder) Undecoded() []string
+```
+
+UCL is a whole-document format, not a framed one — there is nothing marking
+where one value ends the way JSON's bracket-matching lets `json.Decoder` read
+a stream of values. `Decoder.Decode` reads everything the reader has, parses
+it once, and decodes it; a second call finds the reader drained and returns
+`io.EOF`, matching `json.Decoder`'s shape without pretending UCL streams the
+way JSON does.
+
+### Options
+
+`Parse`, `ParseString`, `ParseFile`, `Unmarshal`, `NewDecoder` and
+`Node.Decode` all take the same `Option` values:
+
+```go
+func WithVariable(name, value string) Option
+func WithMacro(name string, fn MacroFunc) Option
+func DisallowUnknownFields() Option
+```
+
+`WithVariable` registers a `${name}` a document can reference, and works on
+any of the parsing entry points, decode or not. `WithMacro` registers a
+user-defined `.macro`:
+
+```go
+type MacroFunc func(data []byte, args *Node) error
+```
+
+`args` holds a macro invocation's parenthesised `(key=value)` arguments as a
+`*Node`, or nil when there were none. Returning an error fails the parse with
+a `*SyntaxError` whose `Code` is `ErrMacro` — which is a divergence from the
+C worth knowing about: a libucl macro handler signals failure by returning
+false, and the engine then aborts the chunk *without recording an error at
+all*, leaving a caller with what looks like a successful parse of an empty
+document. `WithMacro` closes that gap in the Go layer rather than reproducing
+it, because a macro that can only fail silently is not a usable extension
+point. `docs/notes/idiomatic.md` has the reference-verified transcript and the
+reasoning in full.
+
+`Node.Decode` accepts the same `Option` values for symmetry with `Unmarshal`,
+but a `*Node` has already been parsed, so `WithVariable` and `WithMacro` have
+nothing left to act on — only `DisallowUnknownFields` does anything there.
+
 ## Comments
 
 Comments are the main reason to choose UCL over JSON, so they survive a parse
@@ -389,6 +572,66 @@ corpus was captured from, so a round trip cannot drift from the C by
 construction. A `Format` that is not one of the four constants returns
 `ErrFormat`; encoding an invalid node returns an error rather than empty output.
 
+### Encoding Go values
+
+`Marshal` is the reverse of `Unmarshal`: a Go value becomes a UCL document
+without a `*Node` in sight.
+
+```go
+func Marshal(v any) ([]byte, error)
+```
+
+```go
+out, err := goucl.Marshal(cfg)
+```
+
+`Marshal` always writes `FormatConfig` — there is no options parameter,
+because it is the one format that round-trips through `Unmarshal` without
+loss; reach for `Node` and `Bytes` above for the other three. Map keys are
+sorted before encoding, so two calls on the same map produce the same bytes
+even though Go's own map iteration order is randomised per run.
+
+A type the format has no representation for — a channel, a function, a
+complex number, an unsafe pointer — is an `*UnsupportedTypeError` naming the
+type and the path. A value reachable from itself through a pointer, map or
+slice is a `*CycleError` rather than an infinite walk.
+
+Two limits are worth stating plainly, because both come from the C rather
+than from this package, and both are covered with the reference-verified
+evidence in `docs/notes/idiomatic.md`:
+
+* **A `time.Duration` survives a tree round trip, not a text one.** `Marshal`
+  encodes it as a UCL time (`10s`), and `Node.Duration` reads a time back, but
+  the config emitter has no textual way to mark a number as meaning seconds.
+  A document written out and read back in has already lost the distinction:
+  `10s` comes back as `10.0`, and `Kind()` reports `KindFloat`, not
+  `KindTime`. This is the language, not a gap in the encoder — the same is
+  true of a `10s` a human wrote by hand and passed through the C.
+* **A `[]byte` does not survive a text round trip if it holds control
+  bytes.** UCL strings hold raw bytes, so `Marshal` writes one untouched
+  rather than base64-encoding it, but the config emitter still replaces any
+  byte below `0x20` or `0x7F` with the Unicode replacement character on the
+  way out. A high byte such as `0xFF` is unaffected and passes through.
+
+### `Encoder`
+
+```go
+func NewEncoder(w io.Writer, opts ...EncodeOption) *Encoder
+func (e *Encoder) Encode(v any) error
+func WithFormat(f Format) EncodeOption
+```
+
+```go
+enc := goucl.NewEncoder(w, goucl.WithFormat(goucl.FormatJSON))
+err := enc.Encode(cfg)
+```
+
+Without `WithFormat`, an `Encoder` writes `FormatConfig`, same as `Marshal`.
+`EncodeOption` is deliberately not the same interface as the `Option` parsing
+and decoding take: `WithFormat` means nothing to a parse, and
+`DisallowUnknownFields` means nothing to an encode, so a call mixing the two
+up is a compile error instead of a silent no-op.
+
 ## Errors
 
 Every parse failure returns a `*SyntaxError`, so `errors.As` against it always
@@ -458,26 +701,54 @@ and it reports `ErrIO`; the rest keep whatever the engine set.
 So treat a non-nil error as the failure signal, read `Message` for the detail,
 and never write a switch that assumes one of the other codes must apply.
 
+### `*DecodeError`
+
+A parse failure is always a `*SyntaxError`. A document that parses fine but
+does not fit the shape `Unmarshal` or `Decode` was asked to fill it into —
+a type mismatch, an unsupported target kind, a strict-mode unknown key — is a
+different failure, and it is a different type:
+
+```go
+type DecodeError struct {
+	Path    string // dotted, in the spelling Node.Get accepts
+	Message string
+	Err     error  // the underlying cause, if any; Unwrap reaches it
+}
+```
+
+```go
+var de *goucl.DecodeError
+if errors.As(err, &de) {
+	fmt.Printf("%s: %s\n", de.Path, de.Message)
+}
+```
+
+`Path` is relative to whatever `Decode` was called on, empty for a failure at
+the root. Keeping the two error types apart matters because they call for
+different responses: a `*SyntaxError` means the document itself is broken and
+carries a position and an excerpt to show where; a `*DecodeError` means the
+document is fine but does not match the Go shape asked of it, and carries a
+field path instead.
+
 ## What does not exist yet
 
-The library reads documents. It does not build or edit them, and it has no
-reflect-based layer. Specifically, none of these exist:
+The library does not build or edit documents. Specifically, none of these
+exist:
 
-* `Marshal` and `Unmarshal`
-* `Encoder` and `Decoder`
-* parser options — no `WithFS`, `WithVariable`, `WithMacro`,
-  `DisallowUnknownFields`, and no way to set the parser flags the engine
-  supports
-* generic accessors (`Get[T]`) — deferred rather than rejected, because adding
-  them later breaks nobody and removing them would
-* per-node position — the engine records no line or column on a node; only the
-  parser knows one, and only while parsing. Errors carry a position and nodes
-  do not
+* generic accessors (`Get[T]`) — deferred rather than rejected, because
+  adding them later breaks nobody and removing them would
+* per-node position — the engine records no line or column on a node; only
+  the parser knows one, and only while parsing. Errors carry a position and
+  nodes do not
 * tree construction and editing of any kind
+* `WithFS`, an opt-in sandbox restricting where an `.include` may read from —
+  it needs the engine to let this layer intercept an include before the
+  engine opens it, which does not exist yet either
 
-`DESIGN.md` §7 sketches the intended shape of the first three. Callers who need
-the full engine behaviour today — macros, priorities, parser flags, MessagePack,
-schema validation — reach it through `compat/libucl`.
+MessagePack, S-expressions and JSON Schema validation are not on the
+idiomatic surface at all — they were never planned for it, so their absence
+here is not a gap. They remain reachable through the lower-level entry points
+and `compat/libucl`.
 
 ## Migrating from the cgo binding
 
