@@ -764,6 +764,12 @@ import-path change:
 +import "github.com/derekmarcotte/goucl/compat/libucl"
 ```
 
+It is a separate Go module from the rest of goucl, so it has to be required
+explicitly — `go get github.com/derekmarcotte/goucl/compat/libucl` — and it
+carries its own version. The import path is the one above either way; the
+split exists so that programs using only the idiomatic API never pull in
+this package's carried-over files. See the repository's NOTICE for why.
+
 Nothing else changes. The `libucl` struct tag, `Object.Decode`, `Emit`,
 `Iterate`, the `ObjectType` and `Emitter` constants and the parser flags all
 keep their names, values and signatures.

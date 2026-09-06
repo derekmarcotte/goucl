@@ -1,4 +1,11 @@
-Copyright (c) 2013-2014, Vsevolod Stakhov <vsevolod@highsecure.ru>
+goucl is a translation of libucl and is distributed under libucl's licence,
+reproduced below. No additional copyright is asserted over the translation or
+over the Go-specific code in this module; see NOTICE for provenance.
+
+---
+
+Copyright (c) 2013-2015, Vsevolod Stakhov <vsevolod@highsecure.ru>
+Copyright (c) 2015, Allan Jude <allanjude@freebsd.org>
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

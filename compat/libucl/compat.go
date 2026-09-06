@@ -20,6 +20,26 @@
 // engine behind an API written for Go rather than for C. This package exists
 // for migration and makes no attempt to be pleasant.
 //
+// # Attribution
+//
+// The API reproduced here is Mitchell Hashimoto's work, from
+// github.com/mitchellh/go-libucl at commit f9d0e55 (2015-11-19): the design,
+// the "libucl" struct tag, the type and constant names and the method sets are
+// all his, carried over deliberately rather than reinvented. decoder.go,
+// object_test.go and parser_test.go are his files unmodified; decoder_test.go
+// is his too, differing only by the markers disabling one test that is broken
+// upstream, with the evidence recorded beside it.
+//
+// That repository states no licence: it carries no LICENSE file, no per-file
+// copyright headers and no licence statement in its README, and it is archived
+// with no instruction about reuse. The credit given here is therefore credit
+// and not a licence grant. See the NOTICE file at the repository root before
+// redistributing this package.
+//
+// For that reason this package is a separate Go module, required explicitly
+// rather than pulled in with the rest of goucl. Programs using only the
+// idiomatic API never carry these files. The import path is unaffected.
+//
 // This file is the shim that puts the API of the original cgo binding on top
 // of the pure-Go github.com/derekmarcotte/goucl/internal/core. It replaces
 // the binding's parser.go, object.go, libucl.go and go-libucl.h, and with

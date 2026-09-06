@@ -13,6 +13,12 @@ Three packages:
 | `compat/libucl` | drop-in for `github.com/mitchellh/go-libucl`, package `libucl` |
 | `internal/core` | the C-mirror engine the other two are built on |
 
+`compat/libucl` is a **separate module**, so it is opt-in: `go get`ting goucl
+does not bring it, and the main module carries none of the third-party code
+described under [Licence and attribution](#licence-and-attribution). Its
+import path is unchanged. Because it is a separate module, `go test ./...` at
+the root does not reach it — use `tools/test-all.sh` to run everything.
+
 ```go
 doc, err := goucl.ParseFile("app.conf")
 host, ok := doc.String("server.host")
@@ -79,8 +85,22 @@ cd ../goucl && ./tools/gen-goldens.sh
 
 Once those land upstream, plain `master` will do.
 
-## Licence
+## Licence and attribution
 
-This project is a port of libucl and is distributed under the same BSD-2-clause
-terms; see `NOTICE-libucl`. Test fixtures under `internal/core/testdata/` are
-copied verbatim from the libucl distribution.
+This project is a port of libucl and is distributed under libucl's own
+BSD-2-clause terms, copyright (c) 2013-2015 Vsevolod Stakhov with contributions
+by Allan Jude. No additional copyright is asserted over the translation. See
+`LICENSE` for the terms and `NOTICE` for full provenance.
+
+`internal/core` was produced by automated translation of libucl's C sources by
+a large language model, function by function; its correctness rests on
+differential testing against the compiled C library rather than on the
+translation itself. `internal/core/list.go` additionally translates the
+utlist.h list macros, copyright (c) 2007-2022 Troy D. Hanson. Test fixtures
+under `internal/core/testdata/` are copied verbatim from the libucl
+distribution.
+
+`compat/libucl` reproduces the API of Mitchell Hashimoto's
+github.com/mitchellh/go-libucl and carries four files from it. That repository
+states no licence, so the attribution in `NOTICE` is credit rather than a
+licence grant; read it before redistributing that package.
