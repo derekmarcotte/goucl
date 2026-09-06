@@ -1,6 +1,22 @@
 // Package libucl parses and manipulates configuration in the Universal
 // Configuration Language.
 //
+// It is a drop-in replacement for github.com/mitchellh/go-libucl, the cgo
+// binding to the C libucl, and exists so that programs using that binding can
+// drop the C toolchain without changing their code. The API is identical and
+// the migration is an import-path swap:
+//
+//	import "github.com/derekmarcotte/goucl/compat/libucl"
+//
+// Existing call sites keep compiling, because the types, method sets and
+// numeric constants are the ones the binding exposed. That claim is tested
+// rather than asserted: the binding's own test suite runs against this package
+// with its files unmodified.
+//
+// New code should prefer github.com/derekmarcotte/goucl, which offers the same
+// engine behind an API written for Go rather than for C. This package exists
+// for migration and makes no attempt to be pleasant.
+//
 // This file is the shim that puts the API of the original cgo binding on top
 // of the pure-Go github.com/derekmarcotte/goucl/internal/core. It replaces
 // the binding's parser.go, object.go, libucl.go and go-libucl.h, and with
