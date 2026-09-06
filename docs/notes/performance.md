@@ -74,3 +74,49 @@ these numbers compare against a *patched* C rather than against released
 0.9.4. That is the right baseline for correctness, since it is the build the
 goldens come from, and the fixes are small and not in any hot path -- but the
 numbers should not be quoted as "against upstream 0.9.4" without saying so.
+
+## A data-oriented pass was tried and rejected
+
+Worth reading before proposing one, because the obvious version of this idea
+looks much better than it measures.
+
+`sizeof(Object)` is **184 bytes. The C's `ucl_object_t` is 64** -- exactly one
+cache line. The C's `value` is an 8-byte union; Go has no unions, so our eight
+value fields sit side by side and a parsed integer carries 184 bytes to hold 8.
+That is a 2.9x blowup per node, it lines up suspiciously well with the 2.5-3.5x
+parse ratio, and it invites the conclusion that layout is the problem.
+
+It is not. Three changes were prototyped and measured:
+
+1. Box the userdata trio and the render cache behind pointers, neither of which
+   a parsed document ever populates: **184 -> 136 bytes**, a 26% smaller node.
+2. Registration of the six built-in macros: six pointer allocations per parser
+   became one slice.
+3. The hash lookup written inline so the compiler elides the string conversion
+   it cannot elide through a helper.
+
+All three together, with the whole suite passing including the 168 goldens:
+
+| | Memory | Time |
+|---|---|---|
+| Small fixtures (187 B - 1.6 KB) | -13 to -16% | ~4-6%, inside the noise |
+| Upstream's 19 MB speed-test document | -14% (186 MB -> 161 MB) | ~5% |
+
+**Roughly 5%, at a 19 MB working set where cache locality should dominate.**
+
+The reason is in the allocation count, which barely moved: 2.7 million
+allocations for that one document, averaging 69 bytes each. Node size scales
+what each allocation costs; it removes none of them. The real lever would be
+slab-allocating nodes into `[]Object` chunks -- they are never individually
+freed, so it fits -- which would remove roughly a fifth of the allocations and
+deliver actual contiguity. That is a rewrite of how the engine allocates, not a
+tidying pass.
+
+Rejected on the trade: 5% does not pay for the fidelity. Boxing fields means
+`types.go` no longer reads field-for-field against `ucl_object_t`, and that
+correspondence is what makes a future upstream change portable and reviewable.
+The engine is measured at 1.75-3.5x of a mature C library, configuration is
+read at startup, and no workload has complained.
+
+Reconsider only if one does, and start by profiling allocation count rather
+than by shrinking the struct.
