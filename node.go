@@ -25,28 +25,41 @@ const (
 )
 
 // String names the kind.
+//
+// The names come from the engine, which is where UCL's type names are defined
+// (ucl_object_type_to_string). Keeping a second table here would be two lists
+// that have to agree forever.
 func (k Kind) String() string {
+	t, ok := k.coreType()
+	if !ok {
+		return "invalid"
+	}
+	return t.String()
+}
+
+// coreType maps back to the engine's type. Every kind but KindInvalid has one.
+func (k Kind) coreType() (core.Type, bool) {
 	switch k {
 	case KindObject:
-		return "object"
+		return core.TypeObject, true
 	case KindArray:
-		return "array"
+		return core.TypeArray, true
 	case KindInt:
-		return "integer"
+		return core.TypeInt, true
 	case KindFloat:
-		return "float"
+		return core.TypeFloat, true
 	case KindString:
-		return "string"
+		return core.TypeString, true
 	case KindBool:
-		return "boolean"
+		return core.TypeBoolean, true
 	case KindTime:
-		return "time"
+		return core.TypeTime, true
 	case KindNull:
-		return "null"
+		return core.TypeNull, true
 	case KindUserdata:
-		return "userdata"
+		return core.TypeUserdata, true
 	}
-	return "invalid"
+	return 0, false
 }
 
 func kindOf(t core.Type) Kind {
@@ -197,25 +210,19 @@ func (n *Node) All() iter.Seq2[string, *Node] {
 // Values iterates an array's elements, or the implicit array a repeated key
 // forms. Anything else yields itself once, because in UCL a lone value and a
 // one-element implicit array are the same thing.
+//
+// Both walks are the engine's. Its iterator expands a container when asked and
+// otherwise walks the implicit chain, which is exactly the distinction here,
+// so neither traversal is reimplemented.
 func (n *Node) Values() iter.Seq[*Node] {
 	return func(yield func(*Node) bool) {
 		if n == nil || n.obj == nil {
 			return
 		}
-		if n.Kind() == KindArray {
-			for i := uint32(0); i < core.ArraySize(n.obj); i++ {
-				elt := core.ArrayFindIndex(n.obj, i)
-				if elt == nil {
-					continue
-				}
-				if !yield(n.wrap(elt)) {
-					return
-				}
-			}
-			return
-		}
-		for cur := n.obj; cur != nil; cur = cur.Next {
-			if !yield(n.wrap(cur)) {
+		expand := n.Kind() == KindArray
+		var it core.Iter
+		for elt := core.Iterate(n.obj, &it, expand); elt != nil; elt = core.Iterate(n.obj, &it, expand) {
+			if !yield(n.wrap(elt)) {
 				return
 			}
 		}
