@@ -610,8 +610,10 @@ evidence in `docs/notes/idiomatic.md`:
 * **A `[]byte` does not survive a text round trip if it holds control
   bytes.** UCL strings hold raw bytes, so `Marshal` writes one untouched
   rather than base64-encoding it, but the config emitter still replaces any
-  byte below `0x20` or `0x7F` with the Unicode replacement character on the
-  way out. A high byte such as `0xFF` is unaffected and passes through.
+  byte below `0x20` or `0x7F` with the six-character escape `\uFFFD` on the
+  way out, which reads back as the Unicode replacement character rather than
+  as the byte written. A high byte such as `0xFF` is unaffected and passes
+  through.
 
 ### `Encoder`
 

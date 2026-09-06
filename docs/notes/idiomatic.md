@@ -107,18 +107,30 @@ says why.
 
 A UCL string holds raw bytes, and `Marshal` puts a `[]byte` in one without
 base64 encoding it. Emitting is still lossy for part of the byte range: the
-config emitter writes `�` for bytes below 0x20 and for 0x7F, while high
-bytes pass through untouched. Verified against the reference:
+config emitter writes the six-character escape `\uFFFD` -- backslash, `u`,
+then four hex digits, as ASCII -- for every byte below 0x20 and for 0x7F,
+while high bytes pass through as themselves.
+
+Verified against the reference. The bytes are given as bytes on purpose: a
+terminal renders that escape as the single glyph the four hex digits name,
+which is not what the emitter wrote and misled this note once already.
 
 ```
-insert the bytes  61 01 1f 7f ff 62
-config emit ->    k = "a���\xffb";
+insert    61 01 1f 7f ff 62
+
+emit      6b 20 3d 20 22 61 5c 75 46 46 46 44 5c 75 46 46 46 44
+          5c 75 46 46 46 44 ff 62 22 3b 0a
+
+as text   k = "a\uFFFD\uFFFD\uFFFD<0xff>b";
 ```
 
-So `0xFF` survives a text round trip and `0x01` does not. This is the C's
-escaping, so it stands. `marshal_test.go`'s byte round trip deliberately picks
-content outside the lossy range while still covering high bytes and embedded
-structure, and a comment there points here.
+Each of 0x01, 0x1F and 0x7F became six ASCII characters; 0xFF was written
+unchanged. So 0xFF survives a text round trip and 0x01 does not, and a
+consumer reading the result back sees the literal text rather than a
+replacement character. This is the C's escaping, so it stands.
+`marshal_test.go`'s byte round trip deliberately picks content outside the
+lossy range while still covering high bytes and embedded structure, and a
+comment there points here.
 
 ### A failing macro is an error here and is not one in the C
 
