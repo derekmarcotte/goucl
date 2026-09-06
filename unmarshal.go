@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"time"
 )
 
 // DecodeError reports a reflect-level failure decoding a Node into a Go
@@ -80,11 +79,6 @@ type decoder struct {
 	strict    bool
 	undecoded []string
 }
-
-var (
-	textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
-	durationType        = reflect.TypeOf(time.Duration(0))
-)
 
 // joinPath extends a dotted path with the next segment, matching the
 // spelling Node.Get accepts.

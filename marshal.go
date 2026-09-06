@@ -56,13 +56,6 @@ func (e *CycleError) Error() string {
 	return fmt.Sprintf("goucl: cycle at %s", e.Path)
 }
 
-// durationType and textMarshalerType are compared against by reflect.Type
-// equality/Implements, rather than by name, so they are computed once.
-var (
-	durationType      = reflect.TypeOf(time.Duration(0))
-	textMarshalerType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
-)
-
 // visitKey identifies one reference value -- a pointer, map or slice -- for
 // cycle detection.
 type visitKey struct {
