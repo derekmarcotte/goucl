@@ -1,2 +1,3 @@
 /coverage.out
 *.test
+/go.work.sum

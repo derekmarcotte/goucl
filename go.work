@@ -1,0 +1,12 @@
+// Resolve the two modules in this repository against each other from the
+// working tree, so that compat/libucl builds here without its pinned version
+// of the main module having been published yet.
+//
+// A workspace file is ignored when either module is consumed as a dependency,
+// so this affects development in this repository only.
+go 1.23
+
+use (
+	.
+	./compat/libucl
+)

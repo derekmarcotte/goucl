@@ -7,14 +7,12 @@
 //
 // The import path is unchanged, so migrating call sites are unaffected: this
 // is still imported as github.com/derekmarcotte/goucl/compat/libucl.
+//
+// Development inside this repository resolves the requirement below against
+// the working tree, via the go.work at the repository root, so the pinned
+// version does not have to exist yet.
 module github.com/derekmarcotte/goucl/compat/libucl
 
 go 1.23
 
-require github.com/derekmarcotte/goucl v0.0.0
-
-// BEFORE PUBLISHING: drop this replace and pin the require above to a real
-// released version of the main module. A replace directive in a dependency is
-// ignored by the consumer, so publishing with it would leave anyone importing
-// this package trying to resolve a version that does not exist.
-replace github.com/derekmarcotte/goucl => ../..
+require github.com/derekmarcotte/goucl v1.0.0
