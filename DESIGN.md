@@ -1,13 +1,15 @@
 # Design: an idiomatic Go UCL library
 
-**Status: being built.** The restructure in §5 is done: the engine moved to
-`internal/core` and the drop-in to `compat/libucl`. The idiomatic surface
-itself — §7's sketch — is not written yet.
+**Status: being built.** §5's restructure is done, and §6's decisions are all
+settled and marked below. The tree, the parser entry points, the emitters and
+the error type exist; `Marshal`, `Unmarshal`, `Encoder`, `Decoder` and the
+options in §7's sketch do not yet.
 
-The decisions in §6 have been settled, but **only §10's module path is marked
-as such below**; §6.1–§6.4 still read as open questions and are yet to be
-amended. Until that pass lands, this document is not a reliable record of what
-was decided.
+Where building something corrected this document, the section says so rather
+than quietly reading as though it were always right. §6.1 assumed yaml.v3's
+three comment positions and UCL has two; §6.2 recommended re-rooting includes
+and that was wrong; §6.4's sketch includes a per-node position the engine
+cannot supply.
 
 The current library is feature complete and passing; nothing here is required
 to use it.
@@ -125,57 +127,103 @@ strategies and macros as options; `compat/libucl` covers the rest. If a real
 need appears, promoting a package out of `internal/` is easy — the reverse is
 not.
 
-## 6. Decisions to make first
+## 6. Decisions
 
-Each of these is hard to reverse once there is code.
+All settled. Each records what was decided and, where building it taught us
+something the proposal had wrong, what that was.
 
-### 6.1 Does the idiomatic tree preserve comments?
+### 6.1 Does the idiomatic tree preserve comments? SETTLED: yes
 
-* **Yes** → the tree is a `Node` in the yaml.v3 sense, with comments attached,
-  and that shape pervades every API that touches it.
-* **No** → a simpler `Value`, and comment round-trip becomes a separate mode.
+`Node` carries them, and a config-format round trip preserves them.
 
-**Recommendation: yes.** Comments are a main reason to choose UCL over JSON,
-and this is close to impossible to retrofit. The cost is a heavier tree type
-and a decision about where a comment attaches when a document is edited
-programmatically.
+**But not in the yaml.v3 shape this section assumed.** Head, line and foot
+comments have no counterpart in UCL. The engine attaches one comment chain per
+node with a single placement bit, so there are exactly two positions, and
+`Node` exposes exactly those: `Before` and `After`.
 
-### 6.2 Are includes on by default, and where do they resolve?
+There is no line comment because UCL has no such concept. A comment trailing a
+value on the same line binds to the *next* node, not the one it sits beside,
+because the parser accumulates comments until the next node is built:
 
-* **A.** As libucl: on, resolving against the process working directory.
-* **B.** On, resolving against the including file's directory.
-* **C.** Off unless the caller supplies a root, and then rooted at an `fs.FS`.
+```
+a = 1; # this comment belongs to b
+b = 2;
+```
 
-**Recommendation: C.** It is explicit, trivially testable, sandboxable, and it
-eliminates finding #1 by construction rather than by documentation. It is a
-deliberate divergence from libucl and should be called out as one. `os.DirFS`
-makes the common case a one-liner, and `fstest.MapFS` makes include behaviour
-testable without touching a disk.
+Consecutive comments merge into one block, so a comment written after the last
+value of an object joins the following node's block and moves when re-emitted.
+Both behaviours are the C's, so both are reproduced and asserted in tests
+rather than corrected.
 
-### 6.3 Typed access: generics or comma-ok?
+The cost this section predicted -- "a decision about where a comment attaches
+when a document is edited programmatically" -- is still unpaid, because nothing
+here edits a tree yet. It comes due with the encoder.
 
-* `ucl.Get[int](v, "a.b")` reads well and fails loudly, but sets a floor on the
-  Go version and interacts awkwardly with user-defined types.
-* `v.Int("a.b") (int, bool)` is duller and works everywhere.
+### 6.2 Are includes on by default, and where do they resolve? SETTLED: A
 
-No recommendation yet; wants prototyping against real call sites. They can also
-coexist, with generics as sugar over the methods.
+**As libucl: on, resolving against the process working directory.**
 
-### 6.4 Is `Value` an interface or a concrete struct?
+This section recommended C, rooting includes at an `fs.FS`. That was wrong,
+and §4's framing of includes as "a security surface, not a convenience" is
+wrong with it. Behaviour a UCL document can observe is the language, not a
+defect to design around: a document that works under the C must work
+identically here. `findings.md` #1 is therefore replicated and documented.
 
-An interface lets users supply their own implementations and makes mocking
-easy; a concrete struct is faster, simpler, and keeps the tree closed so
-invariants hold. `encoding/json` and yaml.v3 both use concrete types.
+An opt-in sandbox may still be added, because an option changes no default.
 
-**Leaning concrete**, but this interacts with 6.1 and should be settled with
-it.
+### 6.3 Typed access: generics or comma-ok? SETTLED: comma-ok
 
-### 6.5 What does a decode error look like?
+`n.Int("db.port") (int64, bool)`, and the same shape for `String`, `Float`,
+`Bool` and `Duration`. Each takes a path, so `""` reads the node itself and
+there is one spelling rather than two.
 
-At minimum: file, line, column, the offending token, and the path within the
-document. It should satisfy `errors.As` against a single exported type, and
-render with a source excerpt. This is cheap to add now and near-impossible to
-add later without breaking everyone's error handling.
+Generics were not ruled out, only deferred: adding `Get[T]` later breaks
+nobody, removing it would. This is the reversible order, which is the whole
+argument, since the section wanted prototyping before committing.
+
+Comma-ok earns its keep on the case that motivated it. A missing key, a key
+of the wrong kind, and a real zero are three different answers, and all three
+occur constantly in configuration:
+
+```go
+v, ok := doc.Int("retries")   // 0, true   -- the document said 0
+v, ok := doc.Int("absent")    // 0, false  -- no such key
+v, ok := doc.Int("hostname")  // 0, false  -- present, but a string
+```
+
+### 6.4 Is `Value` an interface or a concrete struct? SETTLED: concrete
+
+`Node` is a concrete struct, as in `encoding/json` and `yaml.v3`.
+
+It holds the engine's node rather than copying it, which turned out to matter
+more than the interface question. Emission depends on per-node state -- the
+multiline and single-quote flags, priorities, implicit-array chains, the cached
+string rendering -- so a parallel tree would have to reproduce all of it to
+emit the same bytes. Sharing the engine's nodes makes a round trip exact by
+construction rather than by vigilance.
+
+**One field in §7's sketch cannot be delivered: `position`.** The engine
+records no per-node line or column; only the parser knows a position, and only
+while it is parsing. Errors therefore carry a position and nodes do not.
+Adding one means adding fields to the mirrored `ucl_object_t` and setting them
+everywhere the parser builds a node, which is engine surgery for a feature
+nothing has asked for yet. Left undone deliberately.
+
+### 6.5 What does a decode error look like? SETTLED
+
+`*SyntaxError`, with `File`, `Line`, `Column` and `Code`, reachable through
+`errors.As`, plus `Excerpt` for the caret rendering:
+
+```
+2 | b = ;
+  |     ^
+```
+
+`Column` is 0-based, which is not Go's usual convention. It is what the engine
+reports and what the message text already says, and the two agreeing matters
+more than matching the 1-based convention of Go's own tools. `Message` is the engine's text, byte-identical to
+the C's; it already names file, line and column, so `Error` returns it
+unchanged rather than prefixing a second, differently formatted position.
 
 ## 7. Sketch
 
@@ -234,4 +282,4 @@ a forced upgrade. Both can be used in one program.
   stays where it is.
 * Whether MessagePack and S-expressions are part of the idiomatic surface or
   remain lower-level entry points.
-* Minimum Go version, which 6.3 depends on.
+* **Settled: the minimum Go version is 1.23**, for `iter.Seq2`.
