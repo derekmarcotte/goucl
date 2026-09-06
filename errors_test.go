@@ -250,3 +250,80 @@ func TestEncodeInvalidNodeIsNotASyntaxError(t *testing.T) {
 		t.Error("an encode error should not be a *SyntaxError")
 	}
 }
+
+// --- the encoder and decoder error types ----------------------------------
+//
+// These assert the rendered text, not just that an error came back. A message
+// nothing reads is a message nothing catches when it breaks, and these are
+// the strings a caller sees when a program hands them a bad value.
+
+func TestUnsupportedTypeErrorMessage(t *testing.T) {
+	_, err := Marshal(struct{ C chan int }{})
+	var ute *UnsupportedTypeError
+	if !errors.As(err, &ute) {
+		t.Fatalf("errors.As failed on %T", err)
+	}
+	if ute.Path != "C" {
+		t.Errorf("Path = %q, want %q", ute.Path, "C")
+	}
+	want := "goucl: unsupported type chan int at C"
+	if got := ute.Error(); got != want {
+		t.Errorf("Error() = %q, want %q", got, want)
+	}
+}
+
+func TestCycleErrorMessage(t *testing.T) {
+	type ring struct {
+		Next *ring
+	}
+	r := &ring{}
+	r.Next = r
+
+	_, err := Marshal(r)
+	var ce *CycleError
+	if !errors.As(err, &ce) {
+		t.Fatalf("errors.As failed on %T", err)
+	}
+	if got := ce.Error(); !strings.HasPrefix(got, "goucl: cycle at ") {
+		t.Errorf("Error() = %q, want a cycle message", got)
+	}
+}
+
+// A root failure has no path to name, so the message must not render a stray
+// separator for one.
+func TestDecodeErrorMessageAtRoot(t *testing.T) {
+	e := &DecodeError{Message: "no"}
+	if got, want := e.Error(), "goucl: no"; got != want {
+		t.Errorf("Error() = %q, want %q", got, want)
+	}
+}
+
+func TestDecodeErrorMessageWithPath(t *testing.T) {
+	var got struct{ Port int }
+	err := Unmarshal([]byte(`port = "http";`), &got)
+	var de *DecodeError
+	if !errors.As(err, &de) {
+		t.Fatalf("errors.As failed on %T", err)
+	}
+	if de.Path != "port" {
+		t.Errorf("Path = %q, want %q", de.Path, "port")
+	}
+	if msg := de.Error(); !strings.HasPrefix(msg, "goucl: port: ") {
+		t.Errorf("Error() = %q, want it to name the path", msg)
+	}
+}
+
+// Unwrap is what lets errors.Is reach a cause a TextUnmarshaler returned.
+func TestDecodeErrorUnwrap(t *testing.T) {
+	cause := errors.New("the cause")
+	e := &DecodeError{Path: "a", Message: "wrapped", Err: cause}
+	if !errors.Is(e, cause) {
+		t.Error("errors.Is did not reach the cause")
+	}
+	if errors.Unwrap(e) != cause {
+		t.Error("Unwrap did not return the cause")
+	}
+	if errors.Unwrap(&DecodeError{Message: "none"}) != nil {
+		t.Error("Unwrap on a causeless error should be nil")
+	}
+}
