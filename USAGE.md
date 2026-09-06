@@ -748,9 +748,10 @@ exist:
   engine opens it, which does not exist yet either
 
 MessagePack, S-expressions and JSON Schema validation are not on the
-idiomatic surface at all — they were never planned for it, so their absence
-here is not a gap. They remain reachable through the lower-level entry points
-and `compat/libucl`.
+idiomatic surface. Whether they should be is an open question in `DESIGN.md`
+rather than a settled no: the text formats shipped alone because adding a
+format later breaks nobody and withdrawing one would. They remain reachable
+through the lower-level entry points and `compat/libucl`.
 
 ## Migrating from the cgo binding
 

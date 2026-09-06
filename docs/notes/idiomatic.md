@@ -216,7 +216,9 @@ fails. A guard that cannot fail is not a guard.
 The 168 goldens prove the engine, but they cannot be compared against `Parse`
 directly: the C harness parses with `KEY_LOWERCASE`, registers an ABI variable,
 sets file variables, and emits the **second** round trip. Reproducing that
-needs parser options, which do not exist yet.
+needs parser settings this layer does not expose: `WithVariable` can register
+the ABI variable now, but `KEY_LOWERCASE` and the file variables are engine
+flags with no option in front of them.
 
 So the property tested is transparency. Every one of the 28 fixtures, in all
 four text formats, must emit identical bytes through this package and through
