@@ -1,12 +1,19 @@
 package goucl
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/derekmarcotte/goucl/internal/core"
 )
+
+// ErrInvalidNode is returned when an operation is attempted on a nil Node or
+// the zero Node. It is not a *SyntaxError: nothing failed to parse, so there
+// is no position to report and no source to quote.
+var ErrInvalidNode = errors.New("goucl: operation on an invalid node")
 
 // ErrorCode classifies a parse failure. The values mirror the engine's, which
 // mirror the C's, so a code compares equal across all three layers.
@@ -61,9 +68,12 @@ func (c ErrorCode) String() string {
 //		fmt.Print(se.Excerpt())
 //	}
 type SyntaxError struct {
-	// File is the file being parsed, or "" when the input was not a file.
-	// It is not necessarily the file passed to ParseFile: an .include
-	// switches it, so this names the file the error is actually in.
+	// File is the file the error is in, or "" when the input was not a file.
+	//
+	// It is not necessarily the file passed to ParseFile. An .include moves
+	// the parser into another file, and an error raised there names that
+	// file, not the one the caller opened. Line and Column refer to File,
+	// and Excerpt quotes it.
 	File string
 
 	// Line is the 1-based line number.
@@ -77,6 +87,13 @@ type SyntaxError struct {
 	Column int
 
 	// Code classifies the failure.
+	//
+	// It is the engine's own classification, and the engine does not classify
+	// everything: a failure raised while processing a macro -- an .include
+	// naming a file that does not exist, a glob matching nothing, a document
+	// including itself -- carries no code, and Code is then ErrOK on an error
+	// that is real. Treat ErrOK as "unclassified" and read Message; do not
+	// write a switch that assumes one of the other codes must apply.
 	Code ErrorCode
 
 	// Message is the engine's text, which is byte-identical to the C's. It
@@ -139,10 +156,25 @@ func (e *SyntaxError) Excerpt() string {
 // from the parser rather than parsed back out of the message text: the parser
 // still holds the failing chunk, and the numbers it reports are the ones the
 // message was built from.
+//
+// src is the caller's input, which is not always the input the position refers
+// to: an .include moves the parser into another file, and the line and column
+// then belong to that file. Quoting the caller's bytes at that position would
+// put a caret under an unrelated line of the wrong file, which is worse than
+// showing nothing, so the included file is re-read and the excerpt dropped if
+// it cannot be.
 func newSyntaxError(p *core.Parser, src []byte, file string) *SyntaxError {
-	if file == "" {
-		file = p.CurFile()
+	if cur := p.CurFile(); cur != "" {
+		if cur != file {
+			if b, err := os.ReadFile(cur); err == nil {
+				src = b
+			} else {
+				src = nil
+			}
+		}
+		file = cur
 	}
+
 	msg := p.ErrorString()
 	if msg == "" {
 		msg = "goucl: parse failed without a recorded error"

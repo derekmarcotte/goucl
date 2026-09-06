@@ -147,3 +147,106 @@ func TestErrorCodeNames(t *testing.T) {
 func writeFile(path, content string) error {
 	return os.WriteFile(path, []byte(content), 0o644)
 }
+
+// An .include moves the parser into another file. An error raised there must
+// name that file and quote that file: pointing a caret at the same line number
+// in the file the caller opened is worse than showing nothing, because it
+// looks authoritative and is not.
+func TestIncludeErrorNamesTheIncludedFile(t *testing.T) {
+	dir := t.TempDir()
+	inc := filepath.Join(dir, "bad.conf")
+	if err := os.WriteFile(inc, []byte("x = 1;\ny = ;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// The outer file's line 2 is a comment, so a wrong excerpt is obvious.
+	outer := filepath.Join(dir, "main.conf")
+	body := "# comment line one\n# another line two\n.include \"" + inc + "\"\n"
+	if err := os.WriteFile(outer, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := ParseFile(outer)
+	if err == nil {
+		t.Fatal("expected a parse error")
+	}
+	var se *SyntaxError
+	if !errors.As(err, &se) {
+		t.Fatalf("errors.As failed on %T", err)
+	}
+
+	if se.File != inc {
+		t.Errorf("File = %q, want the included file %q", se.File, inc)
+	}
+	if se.Line != 2 {
+		t.Errorf("Line = %d, want 2", se.Line)
+	}
+	excerpt := se.Excerpt()
+	if !strings.Contains(excerpt, "y = ;") {
+		t.Errorf("Excerpt quotes the wrong file:\n%s", excerpt)
+	}
+	if strings.Contains(excerpt, "another line two") {
+		t.Errorf("Excerpt quotes the outer file:\n%s", excerpt)
+	}
+}
+
+// If the included file cannot be re-read, the excerpt is dropped rather than
+// filled in from the wrong source.
+func TestIncludeErrorWithoutReadableSourceHasNoExcerpt(t *testing.T) {
+	dir := t.TempDir()
+	inc := filepath.Join(dir, "vanishing.conf")
+	if err := os.WriteFile(inc, []byte("y = ;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outer := filepath.Join(dir, "main.conf")
+	body := "# a comment\n# another comment\n.include \"" + inc + "\"\n"
+	if err := os.WriteFile(outer, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := ParseFile(outer)
+	var se *SyntaxError
+	if !errors.As(err, &se) {
+		t.Fatalf("errors.As failed")
+	}
+	// Simulate the file becoming unreadable by clearing the retained source
+	// the way newSyntaxError does when the re-read fails.
+	se.src = nil
+	if got := se.Excerpt(); got != "" {
+		t.Errorf("Excerpt = %q, want empty when the source is unavailable", got)
+	}
+}
+
+// A failure the engine does not classify still must not report ErrOK, which
+// would read as success to any caller switching on the code.
+func TestMissingFileIsClassifiedAsIO(t *testing.T) {
+	_, err := ParseFile(filepath.Join(t.TempDir(), "nope.conf"))
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	var se *SyntaxError
+	if !errors.As(err, &se) {
+		t.Fatalf("errors.As failed on %T", err)
+	}
+	if se.Code == ErrOK {
+		t.Error("Code is ErrOK on a real error")
+	}
+	if se.Code != ErrIO {
+		t.Errorf("Code = %v, want io", se.Code)
+	}
+}
+
+// Encoding an invalid node is a caller mistake, not a parse failure, so it
+// must not arrive as a *SyntaxError promising a position it does not have.
+func TestEncodeInvalidNodeIsNotASyntaxError(t *testing.T) {
+	var n *Node
+	_, err := n.Bytes(FormatJSON)
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if !errors.Is(err, ErrInvalidNode) {
+		t.Errorf("err = %v, want ErrInvalidNode", err)
+	}
+	var se *SyntaxError
+	if errors.As(err, &se) {
+		t.Error("an encode error should not be a *SyntaxError")
+	}
+}

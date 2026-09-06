@@ -64,10 +64,7 @@ var ErrFormat = core.ErrEmitFormat
 // them, exactly as the C does.
 func (n *Node) Encode(w io.Writer, f Format) error {
 	if n == nil || n.obj == nil {
-		return &SyntaxError{
-			Code:    ErrInternal,
-			Message: "goucl: encode of an invalid node",
-		}
+		return ErrInvalidNode
 	}
 	em, ok := f.emitter()
 	if !ok {

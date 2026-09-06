@@ -1,6 +1,7 @@
 package goucl
 
 import (
+	"errors"
 	"os"
 
 	"github.com/derekmarcotte/goucl/internal/core"
@@ -44,10 +45,24 @@ func ParseString(s string) (*Node, error) {
 func ParseFile(name string) (*Node, error) {
 	p := core.NewParser(parserFlags)
 	p.AddFile(name)
-	// Read separately, for the error excerpt only. A failure here costs the
-	// excerpt and nothing else, so it is deliberately ignored.
-	src, _ := os.ReadFile(name)
-	return finish(p, src, name)
+
+	// Read separately, for the error excerpt. On the success path a failure
+	// here costs only the excerpt, which is never used.
+	src, readErr := os.ReadFile(name)
+
+	node, err := finish(p, src, name)
+	if err != nil && readErr != nil {
+		// The engine could not parse it and this could not read it, so the
+		// failure is the file itself. The engine leaves such errors
+		// unclassified, and reporting ErrOK on a real error would be a lie
+		// no caller could act on. This is the one case that can be
+		// classified without guessing.
+		var se *SyntaxError
+		if errors.As(err, &se) && se.Code == ErrOK {
+			se.Code = ErrIO
+		}
+	}
+	return node, err
 }
 
 // finish decides whether the parse succeeded.
