@@ -745,3 +745,23 @@ type unmarshalRecA struct {
 type unmarshalRecB struct {
 	unmarshalRecA
 }
+
+// A repeated key decoding into an any becomes a []any, not an error and not
+// the last value to be written. The package documentation says so, and a
+// scalar *field* refusing the same document is what makes the distinction
+// worth asserting: the refusal is about a target that cannot hold two values,
+// not about the repetition itself.
+func TestUnmarshalRepeatedKeyIntoAny(t *testing.T) {
+	var got map[string]any
+	src := `listen = "10.0.0.1:80"; listen = "10.0.0.2:80";`
+	if err := Unmarshal([]byte(src), &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	vals, ok := got["listen"].([]any)
+	if !ok {
+		t.Fatalf("listen is %T, want []any", got["listen"])
+	}
+	if len(vals) != 2 || vals[0] != "10.0.0.1:80" || vals[1] != "10.0.0.2:80" {
+		t.Errorf("listen = %#v", vals)
+	}
+}

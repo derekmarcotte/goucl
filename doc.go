@@ -36,8 +36,9 @@
 // io.Reader/io.Writer instead of a byte slice. Struct tags are read as `ucl`
 // first and `json` second, so an existing `encoding/json`-tagged struct
 // mostly works unchanged; a repeated key such as listen = "a"; listen =
-// "b"; -- something JSON has no way to write -- decodes into a slice field
-// and is an error against anything else. USAGE.md is the full account of the
+// "b"; -- something JSON has no way to write -- decodes into a slice field,
+// or into an any as a []any, and is an error only against a scalar, which
+// could not hold the second value. USAGE.md is the full account of the
 // reflection rules -- tags, omitempty, embedding, unknown-field handling --
 // and the handful of places this layer's behaviour differs from
 // encoding/json's.
