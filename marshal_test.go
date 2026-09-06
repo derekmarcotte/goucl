@@ -3,6 +3,7 @@ package goucl
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -703,5 +704,275 @@ func TestMarshalTextMarshalerRoundTrip(t *testing.T) {
 	}
 	if got, ok := parsed.String("h"); !ok || got != "0xff" {
 		t.Errorf("h = %q, %v; want \"0xff\", true", got, ok)
+	}
+}
+
+// --- Field promotion --------------------------------------------------
+
+// An anonymous struct field with no tag has its exported fields promoted to
+// the outer struct's top level, matching encoding/json.
+func TestMarshalPromoteAnonymousField(t *testing.T) {
+	type Common struct {
+		Name string
+	}
+	type Config struct {
+		Common
+		Port int
+	}
+	n, err := toNode(Config{Common: Common{Name: "svc"}, Port: 8080})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := n.String("Name"); !ok || got != "svc" {
+		t.Errorf(`String("Name") = %q, %v; want "svc", true`, got, ok)
+	}
+	if _, ok := n.Get("Common"); ok {
+		t.Error(`"Common" should not appear as a nested key, its fields are promoted`)
+	}
+}
+
+// An anonymous field with an explicit tag name is treated as an ordinary
+// named field, not promoted.
+func TestMarshalTaggedAnonymousFieldNotPromoted(t *testing.T) {
+	type Common struct {
+		Name string
+	}
+	type Config struct {
+		Common `ucl:"common"`
+		Port   int
+	}
+	n, err := toNode(Config{Common: Common{Name: "svc"}, Port: 8080})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := n.String("common.Name"); !ok || got != "svc" {
+		t.Errorf(`String("common.Name") = %q, %v; want "svc", true`, got, ok)
+	}
+	if _, ok := n.Get("Name"); ok {
+		t.Error(`"Name" should not be promoted, the embed is tagged`)
+	}
+}
+
+// An anonymous field of non-struct type is an ordinary named field, using
+// its type name.
+func TestMarshalAnonymousNonStructField(t *testing.T) {
+	type Label string
+	type Config struct {
+		Label
+		Port int
+	}
+	n, err := toNode(Config{Label: "svc", Port: 8080})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := n.String("Label"); !ok || got != "svc" {
+		t.Errorf(`String("Label") = %q, %v; want "svc", true`, got, ok)
+	}
+}
+
+// An anonymous pointer to struct is promoted the same as an anonymous
+// struct; when the pointer is nil there is nothing to read it through, so
+// the promoted fields are simply absent rather than an error.
+func TestMarshalPromoteAnonymousPointer(t *testing.T) {
+	type Common struct {
+		Name string
+	}
+	type Config struct {
+		*Common
+		Port int
+	}
+
+	n, err := toNode(Config{Common: &Common{Name: "svc"}, Port: 8080})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := n.String("Name"); !ok || got != "svc" {
+		t.Errorf(`String("Name") = %q, %v; want "svc", true`, got, ok)
+	}
+
+	n, err = toNode(Config{Port: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := n.Get("Name"); ok {
+		t.Error(`"Name" should be absent when the embedded pointer is nil`)
+	}
+	if got, ok := n.Int("Port"); !ok || got != 1 {
+		t.Errorf(`Int("Port") = %v, %v; want 1, true`, got, ok)
+	}
+}
+
+// A field at shallower depth wins over one at deeper depth.
+func TestMarshalPromotionConflictDepthWins(t *testing.T) {
+	type Inner struct {
+		X int
+	}
+	type Middle struct {
+		Inner
+	}
+	type Outer struct {
+		Middle
+		X int // shallower: this one wins
+	}
+	n, err := toNode(Outer{Middle: Middle{Inner{X: 1}}, X: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := n.Int("X"); !ok || got != 2 {
+		t.Errorf(`Int("X") = %v, %v; want 2, true (the shallower field should win)`, got, ok)
+	}
+}
+
+// At equal depth, an explicitly tagged field wins over an untagged one.
+func TestMarshalPromotionConflictEqualDepthTaggedWins(t *testing.T) {
+	type A struct {
+		X int `ucl:"x"`
+	}
+	type B struct {
+		X int
+	}
+	type Outer struct {
+		A
+		B
+	}
+	n, err := toNode(Outer{A: A{X: 1}, B: B{X: 2}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := n.Int("x"); !ok || got != 1 {
+		t.Errorf(`Int("x") = %v, %v; want 1, true (the tagged field should win)`, got, ok)
+	}
+}
+
+// At equal depth, if neither of the conflicting fields is tagged (or if
+// both are), all of them are dropped rather than picking one arbitrarily.
+func TestMarshalPromotionConflictEqualDepthDropped(t *testing.T) {
+	type A struct {
+		X int
+	}
+	type B struct {
+		X int
+	}
+	type Outer struct {
+		A
+		B
+	}
+	n, err := toNode(Outer{A: A{X: 1}, B: B{X: 2}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := n.Get("X"); ok {
+		t.Error(`"X" should be dropped: two untagged fields conflict at equal depth`)
+	}
+}
+
+// Exported fields of an unexported embedded struct type are still promoted.
+func TestMarshalPromoteFromUnexportedEmbeddedStruct(t *testing.T) {
+	type common struct {
+		Name string
+	}
+	type Config struct {
+		common
+		Port int
+	}
+	n, err := toNode(Config{common: common{Name: "svc"}, Port: 8080})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := n.String("Name"); !ok || got != "svc" {
+		t.Errorf(`String("Name") = %q, %v; want "svc", true`, got, ok)
+	}
+}
+
+// A recursive embedding graph terminates rather than hanging: typeFields
+// tracks visited types across its breadth-first walk, so a type reachable
+// from itself through embedding runs out of new types to queue.
+func TestMarshalPromotionRecursiveTypeTerminates(t *testing.T) {
+	done := make(chan []field, 1)
+	go func() { done <- cachedTypeFields(reflect.TypeOf(marshalRecA{})) }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("typeFields did not terminate on a cyclic embedding graph")
+	}
+}
+
+// marshalRecA and marshalRecB embed each other, directly and through a
+// pointer, forming a cycle in the embedding graph. Declared at package
+// level: mutual recursion between local types in the same function body
+// isn't legal Go, since local type declarations are resolved in order.
+type marshalRecA struct {
+	*marshalRecB
+	X int
+}
+
+type marshalRecB struct {
+	marshalRecA
+}
+
+// A struct with both plain and embedded fields round-trips through Marshal
+// and Unmarshal back to an equal value -- the property the shared field
+// enumerator exists to guarantee, exercised end to end.
+func TestMarshalUnmarshalPromotionRoundTrip(t *testing.T) {
+	type Common struct {
+		Name string
+	}
+	type Config struct {
+		Common
+		Extra *Common `ucl:"extra"`
+		Port  int
+	}
+
+	want := Config{
+		Common: Common{Name: "svc"},
+		Extra:  &Common{Name: "override"},
+		Port:   8080,
+	}
+	out, err := Marshal(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got Config
+	if err := Unmarshal(out, &got); err != nil {
+		t.Fatalf("Unmarshal(%s): %v", out, err)
+	}
+	if got.Name != want.Name || got.Port != want.Port || got.Extra == nil || *got.Extra != *want.Extra {
+		t.Errorf("got %+v (Extra=%+v), want %+v (Extra=%+v)", got, got.Extra, want, want.Extra)
+	}
+}
+
+// Marshal and Unmarshal must agree on which key names a promoted field:
+// the key Marshal writes for a promoted field must be the same key
+// Unmarshal reads it back from. This is the property the shared enumerator
+// exists to guarantee.
+func TestMarshalUnmarshalPromotionKeyAgreement(t *testing.T) {
+	type Common struct {
+		Name string `ucl:"svcname"`
+	}
+	type Config struct {
+		Common
+		Port int
+	}
+
+	out, err := Marshal(Config{Common: Common{Name: "svc"}, Port: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := Parse(out)
+	if err != nil {
+		t.Fatalf("Parse(%s): %v", out, err)
+	}
+	// Marshal must have written the tagged, promoted key at top level.
+	if got, ok := n.String("svcname"); !ok || got != "svc" {
+		t.Fatalf(`String("svcname") = %q, %v; want "svc", true -- Marshal did not write the key Unmarshal expects`, got, ok)
+	}
+
+	var got Config
+	if err := Unmarshal(out, &got); err != nil {
+		t.Fatalf("Unmarshal(%s): %v", out, err)
+	}
+	if got.Name != "svc" || got.Port != 1 {
+		t.Errorf("got %+v, want {Common:{Name:svc} Port:1}", got)
 	}
 }

@@ -529,3 +529,219 @@ func TestUnmarshalSyntaxErrorIsSyntaxError(t *testing.T) {
 		t.Fatalf("err = %v, want *SyntaxError", err)
 	}
 }
+
+// --- Field promotion --------------------------------------------------
+
+// An anonymous struct field with no tag has its exported fields promoted to
+// the outer struct's top level, matching encoding/json.
+func TestUnmarshalPromoteAnonymousField(t *testing.T) {
+	type Common struct {
+		Name string
+	}
+	type Config struct {
+		Common
+		Port int
+	}
+	var got Config
+	if err := Unmarshal([]byte(`Name = "svc"; Port = 8080;`), &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if got.Name != "svc" || got.Port != 8080 {
+		t.Errorf("got %+v, want {Common:{Name:svc} Port:8080}", got)
+	}
+}
+
+// An anonymous field with an explicit tag name is treated as an ordinary
+// named field, not promoted: a top-level "Name" key does not fill it.
+func TestUnmarshalTaggedAnonymousFieldNotPromoted(t *testing.T) {
+	type Common struct {
+		Name string
+	}
+	type Config struct {
+		Common `ucl:"common"`
+		Port   int
+	}
+	var got Config
+	src := `common { Name = "svc"; } Port = 8080;`
+	if err := Unmarshal([]byte(src), &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if got.Name != "svc" || got.Port != 8080 {
+		t.Errorf("got %+v, want {Common:{Name:svc} Port:8080}", got)
+	}
+
+	var notPromoted Config
+	undecoded, err := decodeInto(mustParse(t, `Name = "top"; Port = 1;`), &notPromoted, false)
+	if err != nil {
+		t.Fatalf("decodeInto: %v", err)
+	}
+	if !slices.Equal(undecoded, []string{"Name"}) {
+		t.Errorf("undecoded = %v, want [Name] -- a top-level Name should not fill the tagged embed", undecoded)
+	}
+}
+
+// An anonymous field of non-struct type is an ordinary named field, using
+// its type name.
+func TestUnmarshalAnonymousNonStructField(t *testing.T) {
+	type Label string
+	type Config struct {
+		Label
+		Port int
+	}
+	var got Config
+	if err := Unmarshal([]byte(`Label = "svc"; Port = 8080;`), &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if got.Label != "svc" || got.Port != 8080 {
+		t.Errorf("got %+v, want {Label:svc Port:8080}", got)
+	}
+}
+
+// An anonymous pointer to struct is allocated when a document key promoted
+// from it is actually present, and left nil otherwise.
+func TestUnmarshalPromoteAnonymousPointer(t *testing.T) {
+	type Common struct {
+		Name string
+	}
+	type Config struct {
+		*Common
+		Port int
+	}
+
+	var withKey Config
+	if err := Unmarshal([]byte(`Name = "svc"; Port = 1;`), &withKey); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if withKey.Common == nil || withKey.Name != "svc" || withKey.Port != 1 {
+		t.Errorf("got %+v, want an allocated Common{Name:svc} and Port:1", withKey)
+	}
+
+	var withoutKey Config
+	if err := Unmarshal([]byte(`Port = 2;`), &withoutKey); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if withoutKey.Common != nil {
+		t.Errorf("Common = %+v, want nil: no promoted key was present", withoutKey.Common)
+	}
+	if withoutKey.Port != 2 {
+		t.Errorf("Port = %d, want 2", withoutKey.Port)
+	}
+}
+
+// A field at shallower depth wins over one at deeper depth.
+func TestUnmarshalPromotionConflictDepthWins(t *testing.T) {
+	type Inner struct {
+		X int
+	}
+	type Middle struct {
+		Inner
+	}
+	type Outer struct {
+		Middle
+		X int // shallower: this one wins
+	}
+	var got Outer
+	if err := Unmarshal([]byte(`X = 2;`), &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if got.X != 2 {
+		t.Errorf("X = %d, want 2 (the shallower field should win)", got.X)
+	}
+}
+
+// At equal depth, an explicitly tagged field wins over an untagged one.
+func TestUnmarshalPromotionConflictEqualDepthTaggedWins(t *testing.T) {
+	type A struct {
+		X int `ucl:"x"`
+	}
+	type B struct {
+		X int
+	}
+	type Outer struct {
+		A
+		B
+	}
+	var got Outer
+	if err := Unmarshal([]byte(`x = 1;`), &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if got.A.X != 1 {
+		t.Errorf("A.X = %d, want 1 (the tagged field should win)", got.A.X)
+	}
+}
+
+// At equal depth, if neither (or both) of the conflicting fields is tagged,
+// all of them are dropped: a document key for the shared name is unknown.
+func TestUnmarshalPromotionConflictEqualDepthDropped(t *testing.T) {
+	type A struct {
+		X int
+	}
+	type B struct {
+		X int
+	}
+	type Outer struct {
+		A
+		B
+	}
+	var got Outer
+	undecoded, err := decodeInto(mustParse(t, `X = 1;`), &got, false)
+	if err != nil {
+		t.Fatalf("decodeInto: %v", err)
+	}
+	if !slices.Equal(undecoded, []string{"X"}) {
+		t.Errorf(`undecoded = %v, want [X] -- both conflicting fields should be dropped`, undecoded)
+	}
+	if got.A.X != 0 || got.B.X != 0 {
+		t.Errorf("got %+v, want both X fields left at zero", got)
+	}
+}
+
+// Exported fields of an unexported embedded struct type are still promoted.
+func TestUnmarshalPromoteFromUnexportedEmbeddedStruct(t *testing.T) {
+	type common struct {
+		Name string
+	}
+	type Config struct {
+		common
+		Port int
+	}
+	var got Config
+	if err := Unmarshal([]byte(`Name = "svc"; Port = 8080;`), &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if got.Name != "svc" || got.Port != 8080 {
+		t.Errorf("got %+v, want {common:{Name:svc} Port:8080}", got)
+	}
+}
+
+// A recursive embedding graph terminates rather than hanging: typeFields
+// tracks visited types across its breadth-first walk, so a type reachable
+// from itself through embedding runs out of new types to queue.
+func TestUnmarshalPromotionRecursiveTypeTerminates(t *testing.T) {
+	done := make(chan error, 1)
+	go func() {
+		var got unmarshalRecA
+		done <- Unmarshal([]byte(`X = 1;`), &got)
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Unmarshal: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Unmarshal did not terminate on a cyclic embedding graph")
+	}
+}
+
+// unmarshalRecA and unmarshalRecB embed each other, directly and through a
+// pointer, forming a cycle in the embedding graph. Declared at package
+// level: mutual recursion between local types in the same function body
+// isn't legal Go, since local type declarations are resolved in order.
+type unmarshalRecA struct {
+	*unmarshalRecB
+	X int
+}
+
+type unmarshalRecB struct {
+	unmarshalRecA
+}

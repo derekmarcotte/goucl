@@ -353,7 +353,10 @@ func (d *decoder) decodeStruct(path string, n *Node, rv reflect.Value) error {
 		// an embedded pointer must materialize that pointer, and only now
 		// that a key naming the promoted field has actually been seen --
 		// see the function's own comment.
-		fv := fieldByIndexAlloc(rv, fields[idx].index)
+		fv, err := fieldByIndexAlloc(rv, fields[idx].index)
+		if err != nil {
+			return newDecodeError(joinPath(path, e.key), "%s", err)
+		}
 		if err := d.decode(joinPath(path, e.key), e.node, fv); err != nil {
 			return err
 		}
