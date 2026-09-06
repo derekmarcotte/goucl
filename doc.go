@@ -20,6 +20,33 @@
 //		...
 //	}
 //
+// Most callers want a Go struct rather than a tree, though, and Unmarshal is
+// that path:
+//
+//	type Config struct {
+//		Host    string        `ucl:"host"`
+//		Port    int           `ucl:"port"`
+//		Timeout time.Duration `ucl:"timeout"`
+//	}
+//
+//	var cfg Config
+//	err := goucl.Unmarshal(data, &cfg)
+//
+// Marshal goes the other way, and NewDecoder/NewEncoder read and write an
+// io.Reader/io.Writer instead of a byte slice. Struct tags are read as `ucl`
+// first and `json` second, so an existing `encoding/json`-tagged struct
+// mostly works unchanged; a repeated key such as listen = "a"; listen =
+// "b"; -- something JSON has no way to write -- decodes into a slice field
+// and is an error against anything else. USAGE.md is the full account of the
+// reflection rules -- tags, omitempty, embedding, unknown-field handling --
+// and the handful of places this layer's behaviour differs from
+// encoding/json's.
+//
+// Parsing, decoding and encoding all take functional options: WithVariable
+// and WithMacro extend what a document can reference while it parses,
+// DisallowUnknownFields turns a stray key into an error instead of letting
+// it pass silently, and WithFormat picks the encoder's output syntax.
+//
 // # Fidelity
 //
 // A UCL document means here exactly what it means to the C library. Anything a
