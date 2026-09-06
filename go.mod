@@ -1,3 +1,3 @@
-module example.com/goucl
+module github.com/derekmarcotte/goucl
 
-go 1.21
+go 1.23

@@ -223,8 +223,8 @@ a forced upgrade. Both can be used in one program.
 
 ## 10. Open questions
 
-* The module path, still `example.com/goucl`. This decides the import paths
-  above and wants settling before any of this is built.
+* **Settled: the module path is `github.com/derekmarcotte/goucl`.** The import
+  paths in §5 follow from it.
 * Whether the schema validator belongs in the root package, its own package, or
   stays where it is.
 * Whether MessagePack and S-expressions are part of the idiomatic surface or
