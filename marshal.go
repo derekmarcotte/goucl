@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/derekmarcotte/goucl/internal/core"
@@ -316,55 +315,30 @@ func mapKeyString(k reflect.Value) (string, error) {
 }
 
 // buildStruct converts a struct's fields into a UCL object, in field order.
+// Field enumeration -- including promoting embedded struct fields -- is
+// cachedTypeFields' job, shared with decodeStruct in unmarshal.go so the two
+// directions never disagree about which field a key names.
 func (m *marshaler) buildStruct(v reflect.Value, path string) (*core.Object, error) {
 	obj := core.TypedNew(core.TypeObject)
-	t := v.Type()
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		if f.PkgPath != "" {
-			continue // unexported
-		}
-		name, omitempty, skip := fieldTag(f)
-		if skip {
+	for _, f := range cachedTypeFields(v.Type()) {
+		fv, ok := fieldByIndexRead(v, f.index)
+		if !ok {
+			// Reached only through a nil embedded pointer: there is no
+			// value to read, so the field (and anything promoted from it)
+			// is simply absent rather than forcing an allocation just to
+			// encode a zero value.
 			continue
 		}
-		fv := v.Field(i)
-		if omitempty && isEmptyValue(fv) {
+		if f.omitempty && isEmptyValue(fv) {
 			continue
 		}
-		child, err := m.build(fv, pathField(path, name))
+		child, err := m.build(fv, pathField(path, f.name))
 		if err != nil {
 			return nil, err
 		}
-		obj.InsertKey(child, []byte(name), false)
+		obj.InsertKey(child, []byte(f.name), false)
 	}
 	return obj, nil
-}
-
-// fieldTag reads a struct field's ucl tag, falling back to its json tag when
-// there is no ucl one. compat/libucl's libucl tag is a different, frozen API
-// and is not consulted here.
-func fieldTag(f reflect.StructField) (name string, omitempty, skip bool) {
-	tag, ok := f.Tag.Lookup("ucl")
-	if !ok {
-		tag, ok = f.Tag.Lookup("json")
-	}
-	if !ok {
-		return f.Name, false, false
-	}
-	if tag == "-" {
-		return "", false, true
-	}
-	name, rest, _ := strings.Cut(tag, ",")
-	if name == "" {
-		name = f.Name
-	}
-	for _, opt := range strings.Split(rest, ",") {
-		if opt == "omitempty" {
-			omitempty = true
-		}
-	}
-	return name, omitempty, false
 }
 
 // isEmptyValue reports whether v is the zero value omitempty skips, matching

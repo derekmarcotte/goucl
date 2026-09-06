@@ -295,13 +295,17 @@ func (d *decoder) decodeSequence(path string, n *Node, rv reflect.Value) error {
 }
 
 // decodeStruct fills the exported fields of a struct target from an object
-// node's keys.
+// node's keys. Fields promoted out of an embedded struct (see
+// cachedTypeFields) are matched the same as any other field: the loop below
+// walks e.key, the key actually present in the document, so an unknown-key
+// or undecoded report always names where the key appears in the document,
+// never a synthesized nested path through the embedding.
 func (d *decoder) decodeStruct(path string, n *Node, rv reflect.Value) error {
 	if n.Kind() != KindObject {
 		return newDecodeError(path, "cannot decode %s into struct", n.Kind())
 	}
 
-	fields := collectFields(rv.Type())
+	fields := cachedTypeFields(rv.Type())
 	exact := make(map[string]int, len(fields))
 	lower := make(map[string]int, len(fields))
 	for i, f := range fields {
@@ -345,59 +349,16 @@ func (d *decoder) decodeStruct(path string, n *Node, rv reflect.Value) error {
 			d.undecoded = append(d.undecoded, upath)
 			continue
 		}
-		fv := rv.FieldByIndex(fields[idx].index)
+		// fieldByIndexAlloc, not rv.FieldByIndex: a field promoted through
+		// an embedded pointer must materialize that pointer, and only now
+		// that a key naming the promoted field has actually been seen --
+		// see the function's own comment.
+		fv := fieldByIndexAlloc(rv, fields[idx].index)
 		if err := d.decode(joinPath(path, e.key), e.node, fv); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-// fieldSpec is one decodable struct field: its name, resolved from the ucl
-// tag, the json tag, or the field name itself, and its index for
-// reflect.Value.FieldByIndex.
-type fieldSpec struct {
-	name  string
-	index []int
-}
-
-// collectFields lists a struct type's decodable fields, in declaration
-// order. Unexported fields are skipped, never panicked on.
-func collectFields(t reflect.Type) []fieldSpec {
-	var out []fieldSpec
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		if !f.IsExported() {
-			continue
-		}
-		name, skip := fieldName(f)
-		if skip {
-			continue
-		}
-		out = append(out, fieldSpec{name: name, index: f.Index})
-	}
-	return out
-}
-
-// fieldName resolves a struct field's decoded name: the ucl tag first, then
-// the json tag, then the Go field name. A tag of "-" with nothing else skips
-// the field. Any ",omitempty" or similar suffix is ignored -- it only
-// affects encoding, not decoding.
-func fieldName(f reflect.StructField) (name string, skip bool) {
-	tag, ok := f.Tag.Lookup("ucl")
-	if !ok {
-		tag, ok = f.Tag.Lookup("json")
-	}
-	if ok {
-		if tag == "-" {
-			return "", true
-		}
-		head, _, _ := strings.Cut(tag, ",")
-		if head != "" {
-			return head, false
-		}
-	}
-	return f.Name, false
 }
 
 // decodeMap fills a map target from an object node's keys. Only a string key
