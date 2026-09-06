@@ -3,6 +3,7 @@ package goucl
 import (
 	"iter"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/derekmarcotte/goucl/internal/core"
@@ -102,6 +103,13 @@ type Node struct {
 	// parse. The engine keys comments by node pointer rather than storing
 	// them on the node, so a child must carry the table with it.
 	comments core.EmitComments
+
+	// elem marks a node reached as one value of a repeated key. The engine
+	// threads those values through the same Next chain, so such a node still
+	// points at its siblings; without this it would look like the head of a
+	// chain and be refused as multi-valued, which would make Values yield
+	// values that cannot then be read.
+	elem bool
 }
 
 // wrap builds a child node carrying this node's comment table.
@@ -110,6 +118,14 @@ func (n *Node) wrap(o *core.Object) *Node {
 		return nil
 	}
 	return &Node{obj: o, comments: n.comments}
+}
+
+// wrapElem builds a node for one value of a repeated key.
+func (n *Node) wrapElem(o *core.Object) *Node {
+	if o == nil {
+		return nil
+	}
+	return &Node{obj: o, comments: n.comments, elem: true}
 }
 
 // Kind reports the node's type.
@@ -128,14 +144,73 @@ func (n *Node) Key() string {
 	return string(n.obj.Key())
 }
 
-// Len reports the number of children: keys for an object, elements for an
-// array, and 0 for every scalar.
+// --- Multi-valued keys ---------------------------------------------------
+//
+// A key written more than once forms an implicit array, threaded through the
+// engine's node chain rather than gathered into an array node:
+//
+//	listen = "10.0.0.1:80";
+//	listen = "10.0.0.2:80";
+//
+// This is the ordinary way to write a list in UCL, and it emits as an array,
+// identically to listen = ["10.0.0.1:80", "10.0.0.2:80"]. So a node presents
+// as a sequence exactly when it emits as one: Len counts it, Index and a
+// numeric path segment address it, and the typed accessors refuse it rather
+// than silently returning the first of several values.
+//
+// Kind is the deliberate exception. It keeps reporting the node's own type --
+// string above, not array -- because that is the only thing distinguishing a
+// repeated key from an array literal, and losing it would mean re-emitting a
+// document in a shape its author did not write.
+
+// chainLen counts the values a key holds: 1 for an ordinary key, more for a
+// repeated one.
+func (n *Node) chainLen() int {
+	if n == nil || n.obj == nil {
+		return 0
+	}
+	count := 0
+	for cur := n.obj; cur != nil; cur = cur.Next {
+		count++
+	}
+	return count
+}
+
+// chainAt returns the i'th value of a repeated key.
+func (n *Node) chainAt(i int) *core.Object {
+	if i < 0 {
+		return nil
+	}
+	for cur := n.obj; cur != nil; cur = cur.Next {
+		if i == 0 {
+			return cur
+		}
+		i--
+	}
+	return nil
+}
+
+// multi reports whether this key holds more than one value, and so presents as
+// a sequence. A real array is excluded: it is already a sequence in its own
+// right, and its elements, not the chain, are what it emits.
+func (n *Node) multi() bool {
+	if n == nil || n.elem {
+		return false
+	}
+	return n.Kind() != KindArray && n.chainLen() > 1
+}
+
+// Len reports the number of children: values for a repeated key, keys for an
+// object, elements for an array, and 0 for every other scalar.
 //
 // This deliberately differs from the compatibility layer's Len, which returns
 // a string's byte length because that is what the C does. Nothing in a UCL
 // document depends on the Go spelling, so this one follows len() on a map or
 // slice instead.
 func (n *Node) Len() int {
+	if n.multi() {
+		return n.chainLen()
+	}
 	switch n.Kind() {
 	case KindObject:
 		count := 0
@@ -162,16 +237,55 @@ func (n *Node) Get(path string) (*Node, bool) {
 	if path == "" {
 		return n, true
 	}
-	found := n.obj.LookupPath(path)
-	if found == nil {
-		return nil, false
+	if found := n.obj.LookupPath(path); found != nil {
+		return n.wrap(found), true
 	}
-	return n.wrap(found), true
+	// The engine's path walker indexes real arrays only, so a numeric segment
+	// against a repeated key misses. Retrying here is strictly additive: it
+	// runs only where the walk above already failed, so no path that resolves
+	// today can resolve differently.
+	return n.lookupThroughChains(path)
 }
 
-// Index returns the i'th element of an array.
+// lookupThroughChains walks a path a segment at a time, letting a numeric
+// segment address a repeated key as well as an array.
+func (n *Node) lookupThroughChains(path string) (*Node, bool) {
+	cur := n
+	for _, seg := range strings.Split(path, ".") {
+		if seg == "" {
+			continue // the engine's walker skips empty segments too
+		}
+		if i, err := strconv.Atoi(seg); err == nil {
+			if next, ok := cur.Index(i); ok {
+				cur = next
+				continue
+			}
+		}
+		next := cur.obj.LookupLen([]byte(seg))
+		if next == nil {
+			return nil, false
+		}
+		cur = cur.wrap(next)
+	}
+	if cur == n {
+		return nil, false
+	}
+	return cur, true
+}
+
+// Index returns the i'th element of an array, or the i'th value of a repeated
+// key.
 func (n *Node) Index(i int) (*Node, bool) {
-	if n.Kind() != KindArray || i < 0 {
+	if i < 0 {
+		return nil, false
+	}
+	if n.multi() {
+		if elt := n.chainAt(i); elt != nil {
+			return n.wrapElem(elt), true
+		}
+		return nil, false
+	}
+	if n.Kind() != KindArray {
 		return nil, false
 	}
 	elt := core.ArrayFindIndex(n.obj, uint32(i))
@@ -219,10 +333,17 @@ func (n *Node) Values() iter.Seq[*Node] {
 		if n == nil || n.obj == nil {
 			return
 		}
+		// An array yields its own elements; anything else yields the values
+		// of the chain, which are marked as elements so that reading one
+		// does not see its siblings and refuse.
 		expand := n.Kind() == KindArray
+		wrap := n.wrapElem
+		if expand {
+			wrap = n.wrap
+		}
 		var it core.Iter
 		for elt := core.Iterate(n.obj, &it, expand); elt != nil; elt = core.Iterate(n.obj, &it, expand) {
-			if !yield(n.wrap(elt)) {
+			if !yield(wrap(elt)) {
 				return
 			}
 		}
@@ -234,12 +355,26 @@ func (n *Node) Values() iter.Seq[*Node] {
 // Each accessor takes a path and reports whether it found a node of a usable
 // kind, so a missing key and a present-but-wrong-kinded one are both false and
 // neither is mistaken for a real zero. Pass "" to read the node itself.
+//
+// A key holding more than one value is also false, rather than the first of
+// them. Reading one value out of several is the one wrong answer these
+// accessors cannot signal, since it is indistinguishable from a correct read
+// of a single-valued key. Use Values or Index for a key that may repeat.
+
+// scalar resolves a path to a single value, refusing a repeated key.
+func (n *Node) scalar(path string) (*Node, bool) {
+	v, ok := n.Get(path)
+	if !ok || v.multi() {
+		return nil, false
+	}
+	return v, true
+}
 
 // String returns a string value. Only a string node yields one; no other kind
 // is rendered. A string holding raw binary yields "" and true, matching the
 // engine.
 func (n *Node) String(path string) (string, bool) {
-	v, ok := n.Get(path)
+	v, ok := n.scalar(path)
 	if !ok {
 		return "", false
 	}
@@ -249,7 +384,7 @@ func (n *Node) String(path string) (string, bool) {
 // Int returns an integer value. A float or a time truncates toward zero, as
 // the C does.
 func (n *Node) Int(path string) (int64, bool) {
-	v, ok := n.Get(path)
+	v, ok := n.scalar(path)
 	if !ok {
 		return 0, false
 	}
@@ -258,7 +393,7 @@ func (n *Node) Int(path string) (int64, bool) {
 
 // Float returns a floating point value. An integer or a time converts.
 func (n *Node) Float(path string) (float64, bool) {
-	v, ok := n.Get(path)
+	v, ok := n.scalar(path)
 	if !ok {
 		return 0, false
 	}
@@ -267,7 +402,7 @@ func (n *Node) Float(path string) (float64, bool) {
 
 // Bool returns a boolean value. Only a boolean node yields one.
 func (n *Node) Bool(path string) (bool, bool) {
-	v, ok := n.Get(path)
+	v, ok := n.scalar(path)
 	if !ok {
 		return false, false
 	}
@@ -280,7 +415,7 @@ func (n *Node) Bool(path string) (bool, bool) {
 // time.Second. Only a time node yields one: a bare number parses as KindInt or
 // KindFloat and is not silently read as seconds.
 func (n *Node) Duration(path string) (time.Duration, bool) {
-	v, ok := n.Get(path)
+	v, ok := n.scalar(path)
 	if !ok || v.Kind() != KindTime {
 		return 0, false
 	}

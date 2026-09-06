@@ -135,3 +135,56 @@ So the property tested is transparency. Every one of the 28 fixtures, in all
 four text formats, must emit identical bytes through this package and through
 the engine, and the two must agree on which inputs fail. That reuses the corpus
 as an oracle without pretending the harnesses match.
+
+## Multi-valued keys
+
+A key written more than once is UCL's ordinary way of spelling a list, and it
+emits identically to an array literal:
+
+```
+listen = "a";                 listen = ["a", "b"]
+listen = "b";
+```
+
+The engine does not gather those into an array node. It threads them through
+the same `Next` chain it uses for everything else, so the node at `listen` *is*
+a string that happens to have siblings.
+
+Read naively, that made the two documents behave completely differently, and
+the dangerous direction was the common one: `String("listen")` returned `"a"`
+with `ok == true`, silently discarding the second value. A program reading
+`allowed_ip` that way enforces the first rule and drops the rest, with no error
+and no wrong-type signal — the exact failure comma-ok exists to prevent.
+
+The rule now is: **a node presents as a sequence exactly when it emits as one.**
+`Len` counts the values, `Index` and a numeric path segment address them, and
+every typed accessor refuses rather than returning one of several. A
+single-valued key is untouched, because its chain length is one, so existing
+correct reads keep working.
+
+`Kind` is the deliberate exception, and the reason is round-trip fidelity
+rather than pedantry. `Kind` reporting `string` for a repeated key and `array`
+for a literal is the *only* thing recording which form the author wrote.
+Reporting `array` for both would read better at the call site and would mean
+that reading a document and writing it back could rewrite the file into a shape
+its author did not choose. So `Kind` describes how the value was written, and
+everything else describes what it holds.
+
+Two implementation notes for anyone changing this:
+
+* Values reached through `Values` or `Index` are marked as elements
+  (`Node.elem`). They are still chain members, so their `Next` points at their
+  siblings, and without the mark each would look like the head of a chain and
+  refuse to be read — making `Values` yield values that could not be used. This
+  was caught by the test suite rather than by inspection.
+* Path lookup tries the engine's walker first and only falls back to the
+  chain-aware walk when that misses. The fallback can therefore turn a miss
+  into a hit but can never change a path that already resolves, which is what
+  keeps the engine's own path semantics authoritative.
+
+A real array node is excluded from all of this: it is already a sequence, and
+its elements rather than its chain are what it emits. The one case left
+inconsistent is a repeated key whose values are themselves arrays
+(`x = [1]; x = [2];`), where the C's emitter drops all but the first — verified
+against the reference. That is upstream data loss, reproduced faithfully, and
+not something this layer papers over.
