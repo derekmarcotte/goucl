@@ -39,6 +39,6 @@
 //
 // Callers migrating from the cgo binding github.com/mitchellh/go-libucl want
 // the compat/libucl subpackage, which reproduces that API exactly and passes
-// its test suite unmodified. This package is for new code and makes no attempt
-// to match it.
+// its own test suite, carried over from it. This package is for new code and
+// makes no attempt to match it.
 package goucl

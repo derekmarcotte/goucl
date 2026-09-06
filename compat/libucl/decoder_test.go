@@ -360,32 +360,63 @@ func TestObjectDecode_struct(t *testing.T) {
 	}
 }
 
-func TestObjectDecode_structKeys(t *testing.T) {
-	type Struct struct {
-		Foo  []string
-		Bar  string
-		Baz  string
-		Keys []string `libucl:",decodedFields"`
-	}
-
-	var result Struct
-
-	obj := testParseString(t, "foo = [foo, bar, 12]; bar = baz;")
-	defer obj.Close()
-
-	if err := obj.Decode(&result); err != nil {
-		t.Fatalf("err: %s", err)
-	}
-
-	expected := Struct{
-		Foo:  []string{"foo", "bar", "12"},
-		Bar:  "baz",
-		Keys: []string{"Foo", "Bar"},
-	}
-	if !reflect.DeepEqual(expected, result) {
-		t.Fatalf("bad: %#v", result)
-	}
-}
+// DISABLED IN THIS FORK. VERIFIED BROKEN UPSTREAM, NOT BY THIS PORT.
+//
+// This test asserts a fixed order for the decodedFields slice, which
+// decodeIntoStruct builds by ranging a map. Go randomises that iteration, so
+// the assertion fails whenever the order comes back the other way. The feature
+// is a set -- which fields were decoded -- and only the assertion treats it as
+// a sequence.
+//
+// Verified against the original, not inferred from reading it. The unmodified
+// mitchellh/go-libucl at f9d0e55 was built as a cgo binding against the real C
+// libucl and its own suite run 40 times: 2 failures, 38 passes, with the same
+// message this fork sees.
+//
+//	decoder_test.go:386: bad: libucl.Struct{... Keys:[]string{"Bar", "Foo"}}
+//
+// (Building it needed a shim: the binding predates libucl renaming
+// ucl_iterate_object to ucl_object_iterate, so it no longer compiles against a
+// current release unmodified. The decoder is pure Go and was untouched.)
+//
+// So this is a defect in the upstream test, reproduced faithfully rather than
+// caused here. Keeping it enabled would fail this project's suite roughly one
+// run in eight while proving nothing about the implementation.
+//
+// Every other file from that commit is byte-identical. This one differs only
+// by the comment markers below. To restore it, strip the leading // from the
+// function and run:
+//
+//	go test ./compat/libucl -run 'TestObjectDecode_structKeys$' -count=40
+//
+// The behaviour it meant to cover is asserted, without the flake, by
+// TestObjectDecode_structKeys_Deterministic in decoder_flaky_test.go.
+// func TestObjectDecode_structKeys(t *testing.T) {
+// 	type Struct struct {
+// 		Foo  []string
+// 		Bar  string
+// 		Baz  string
+// 		Keys []string `libucl:",decodedFields"`
+// 	}
+//
+// 	var result Struct
+//
+// 	obj := testParseString(t, "foo = [foo, bar, 12]; bar = baz;")
+// 	defer obj.Close()
+//
+// 	if err := obj.Decode(&result); err != nil {
+// 		t.Fatalf("err: %s", err)
+// 	}
+//
+// 	expected := Struct{
+// 		Foo:  []string{"foo", "bar", "12"},
+// 		Bar:  "baz",
+// 		Keys: []string{"Foo", "Bar"},
+// 	}
+// 	if !reflect.DeepEqual(expected, result) {
+// 		t.Fatalf("bad: %#v", result)
+// 	}
+// }
 
 func TestObjectDecode_mapStructNamed(t *testing.T) {
 	type Nested struct {

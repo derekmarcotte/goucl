@@ -10,8 +10,11 @@
 //
 // Existing call sites keep compiling, because the types, method sets and
 // numeric constants are the ones the binding exposed. That claim is tested
-// rather than asserted: the binding's own test suite runs against this package
-// with its files unmodified.
+// rather than asserted: the binding's own test suite runs against this
+// package, from its own files. Three are byte-identical to the commit they
+// came from; the fourth differs only by the markers disabling one test that
+// is broken upstream, with the evidence recorded beside it. Run
+// tools/check-compat-identity.sh to verify both.
 //
 // New code should prefer github.com/derekmarcotte/goucl, which offers the same
 // engine behind an API written for Go rather than for C. This package exists
@@ -20,10 +23,9 @@
 // This file is the shim that puts the API of the original cgo binding on top
 // of the pure-Go github.com/derekmarcotte/goucl/internal/core. It replaces
 // the binding's parser.go, object.go, libucl.go and go-libucl.h, and with
-// them the dependency on the C libucl. Everything else in the package --
-// decoder.go and all three test files -- is unchanged, which is the point:
-// the original test suite exercises the Go implementation exactly as it
-// exercised the C one.
+// them the dependency on the C libucl. Everything else in the package comes
+// from the binding, which is the point: the original test suite exercises the
+// Go implementation exactly as it exercised the C one.
 //
 // Object, ObjectIter and Parser are defined types over their engine
 // counterparts, so a pointer to one *is* a pointer to the other: the

@@ -51,7 +51,9 @@ Correctness is proven against the C implementation, not asserted:
   /dev/null without checking their exit status; we pin all six against
   C-produced output — 168 goldens rather than 25.
 * The upstream C test drivers are re-expressed as Go tests over the same data.
-* mitchellh/go-libucl's own test suite is run unmodified against this package
+* mitchellh/go-libucl's own test suite is run against this package from its
+  own files, three byte-identical to upstream and the fourth differing only by
+  the markers disabling a test that is broken upstream too
   via a compatibility shim, as a drop-in proof.
 * The parser, the MessagePack decoder and the S-expression decoder each have a
   fuzz target. The parser's found a real crash on its first run.

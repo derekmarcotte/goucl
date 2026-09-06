@@ -177,20 +177,23 @@ three packages. What changed and what did not:
 * `compat.go` is ours, so its import moved from `example.com/goucl` to
   `github.com/derekmarcotte/goucl/internal/core`, and the `goucl.` qualifiers
   with it. Nothing else in it changed.
-* **mitchellh's four files are still byte-identical to `f9d0e55`.** That is
-  the whole proof, so it is re-verified rather than assumed:
+* **Three of mitchellh's four files are byte-identical to `f9d0e55`, and the
+  fourth differs only by the markers disabling one test.** That is the whole
+  proof, so it is re-verified rather than assumed:
 
   ```sh
-  cd ../go-libucl
-  for f in decoder.go decoder_test.go object_test.go parser_test.go; do
-      git show f9d0e55:$f | cmp - ../goucl/compat/libucl/$f
-  done
+  tools/check-compat-identity.sh
   ```
 
-* Both pre-existing quirks carried across unchanged, as they must: `go vet`
-  still reports `decoder.go:41:2: unreachable code`, and
-  `TestObjectDecode_structKeys` still flakes about one run in eight. Neither
-  is fixable without editing a file whose value is that it is unedited.
+* `go vet` still reports `decoder.go:41:2: unreachable code`, which is
+  mitchellh's own and stays.
+* `TestObjectDecode_structKeys` is now disabled. It fails about one run in
+  eight, and building the original binding against the C libucl showed it
+  fails there too -- 2 in 40 -- so it was never evidence about this port. It
+  is commented out in place with that measurement recorded beside it, and
+  `TestObjectDecode_structKeys_Deterministic` asserts the behaviour it meant
+  to cover. That is the only edit to any carried-over file, and
+  `tools/check-compat-identity.sh` verifies the rest are byte-identical.
 
 `../go-libucl` is untouched and stays as the provenance record. Its `pure-go`
 branch no longer builds, because its `replace` points at a module path that no

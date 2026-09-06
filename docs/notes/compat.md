@@ -9,9 +9,13 @@ Files: `compat.go` and `compat_test.go` here; `compat.go` and `go.mod` on the
 ## Result
 
 `github.com/mitchellh/go-libucl`'s own suite — `decoder_test.go`,
-`object_test.go`, `parser_test.go`, all byte-for-byte unmodified, decoding
-through their unmodified `decoder.go` — builds and passes against pure Go:
-**39 of 39 tests pass**, with one inherited flake described at the bottom.
+`object_test.go`, `parser_test.go`, decoding through their `decoder.go` —
+builds and passes against pure Go: **38 of 39 tests pass, and the 39th is
+disabled because it is broken upstream too**, verified by building the
+original cgo binding and running it. `object_test.go`, `parser_test.go` and
+`decoder.go` are byte-identical to `f9d0e55`; `decoder_test.go` differs only
+by the markers disabling that one test. `tools/check-compat-identity.sh`
+checks both claims.
 
 ## Divergence 1: the plan's pure-alias shim cannot compile
 
@@ -98,27 +102,42 @@ four names above are what would have to be renamed first (`KeyBytes`,
   the parser recorded no message: `errors.New(C.GoString(NULL))` was
   `errors.New("")`, which is non-nil, and callers only test `err != nil`.
 
-## Left failing on purpose
+## Disabled on purpose
 
-### `TestObjectDecode_structKeys` is a 1-in-8 flake, inherited
+### `TestObjectDecode_structKeys` is broken upstream
 
-It passes on a normal run and fails roughly 12.5% of the time:
+`decodeIntoStruct` collects fields into a
+`map[*reflect.StructField]reflect.Value` and appends to `,decodedFields` while
+ranging it, so the list it produces is in Go's randomised map order. The test
+asserts `[]string{"Foo", "Bar"}` and fails whenever the order comes back the
+other way:
 
 ```
 --- FAIL: TestObjectDecode_structKeys
     decoder_test.go:386: bad: ... Keys:[]string{"Bar", "Foo"}
 ```
 
-`decodeIntoStruct` collects fields into a `map[*reflect.StructField]reflect.Value`
-and decodes in Go map iteration order, so the `,decodedFields` list it
-produces is randomly ordered; the test asserts `[]string{"Foo", "Bar"}`.
-Nothing about the object implementation is involved — a standalone program
-that builds the same map from the same struct and does nothing else reverses
-the order in 12,545 of 100,000 runs (12.5%, i.e. one slot in eight, matching
-4 failures in 30 `-count` runs of the real suite). `compat.md` section 5 flagged
-this in advance and `HANDOFF.md` forbids redesigning `decoder.go`, so both the
-decoder and the test are left exactly as they are. The cgo binding had the
-same flake for the same reason.
+**Verified in the original, not inferred.** The unmodified binding at
+`f9d0e55` was built as a real cgo binding against the C libucl and its own
+suite run 40 times: **2 failures, 38 passes**, with the identical message.
+Building it needed one shim — the binding predates libucl renaming
+`ucl_iterate_object` to `ucl_object_iterate`, so it no longer compiles against
+a current release — but `decoder.go` is pure Go and was untouched.
+
+So the defect is in the upstream test, not in anything this port does. It was
+left enabled for a long time on the principle that the carried-over files stay
+unmodified; that principle is worth keeping for files that prove something, and
+this test proves nothing while failing one run in eight.
+
+It is therefore commented out in place, with the evidence above recorded beside
+it and instructions for restoring it. The behaviour it meant to cover —
+`decodedFields` is the *set* of fields that were populated — is asserted
+without the flake by `TestObjectDecode_structKeys_Deterministic` in
+`decoder_flaky_test.go`, which is stable over 200 consecutive runs.
+
+`tools/check-compat-identity.sh` verifies that `decoder_test.go` is otherwise
+byte-identical to `f9d0e55`, and that the other three files are byte-identical
+outright.
 
 ### `go vet ./...` cannot be clean in `../go-libucl`
 

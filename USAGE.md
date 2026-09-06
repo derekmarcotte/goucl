@@ -511,22 +511,24 @@ Two things to know:
   the C's behaviour and a contract here, and it is the one place the two
   packages deliberately disagree.
 
-### The known flake
+### One upstream test is disabled
 
-`TestObjectDecode_structKeys` fails roughly one run in eight, and is left that
-way on purpose. mitchellh's `decodeIntoStruct` collects fields into a
-`map[*reflect.StructField]reflect.Value` and decodes in Go map iteration order,
-so the `,decodedFields` list it produces is randomly ordered while the test
-asserts `[]string{"Foo", "Bar"}`.
+`TestObjectDecode_structKeys` is commented out in `decoder_test.go`, and it is
+the only thing in the carried-over files that differs from upstream.
 
-Nothing about this implementation is involved: a standalone program that builds
-the same map from the same struct and does nothing else reverses the order in
-12.5% of runs. The cgo binding had the same flake for the same reason. Both the
-decoder and the test are unmodified, which is the entire point of running that
-suite, so the flake comes across with them. `docs/notes/compat.md` records the
-measurement.
+It asserts a fixed order for a list that `decoder.go` builds by ranging a map,
+so it fails whenever Go's randomised iteration comes back the other way —
+about one run in eight. That is a defect in the upstream test, verified rather
+than assumed: the original cgo binding was built against the real C libucl and
+its own suite run 40 times, failing twice with the identical message.
 
-If it fails in your CI, re-run it; do not read it as a port defect.
+Keeping it enabled would fail your test runs one time in eight while proving
+nothing about this implementation, so it is disabled in place with the evidence
+recorded beside it, and the behaviour it meant to cover is asserted by
+`TestObjectDecode_structKeys_Deterministic`.
+
+If you would rather run it, strip the comment markers. Everything else is
+byte-identical to upstream, which `tools/check-compat-identity.sh` verifies.
 
 ## Where to look next
 
