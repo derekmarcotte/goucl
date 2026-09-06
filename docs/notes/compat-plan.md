@@ -164,3 +164,35 @@ Two things left deliberately untouched, both pre-existing at `f9d0e55`:
   `compat.go`.
 
 `Makefile`, `.travis.yml` and `README.md` still describe the cgo build.
+
+## Addendum: the shim moved into this module
+
+The plan above was executed in `../go-libucl` on branch `pure-go`, and the
+`go.mod` quoted in step 5 is the one written *there*. It is left as written
+because it records what was actually done.
+
+The shim now lives here, at `compat/libucl`, as part of the restructure into
+three packages. What changed and what did not:
+
+* `compat.go` is ours, so its import moved from `example.com/goucl` to
+  `github.com/derekmarcotte/goucl/internal/core`, and the `goucl.` qualifiers
+  with it. Nothing else in it changed.
+* **mitchellh's four files are still byte-identical to `f9d0e55`.** That is
+  the whole proof, so it is re-verified rather than assumed:
+
+  ```sh
+  cd ../go-libucl
+  for f in decoder.go decoder_test.go object_test.go parser_test.go; do
+      git show f9d0e55:$f | cmp - ../goucl/compat/libucl/$f
+  done
+  ```
+
+* Both pre-existing quirks carried across unchanged, as they must: `go vet`
+  still reports `decoder.go:41:2: unreachable code`, and
+  `TestObjectDecode_structKeys` still flakes about one run in eight. Neither
+  is fixable without editing a file whose value is that it is unedited.
+
+`../go-libucl` is untouched and stays as the provenance record. Its `pure-go`
+branch no longer builds, because its `replace` points at a module path that no
+longer exists — it is superseded by `compat/libucl`, and re-pointing its
+`go.mod` would be the only change needed if it were ever wanted again.
