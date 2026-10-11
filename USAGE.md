@@ -156,7 +156,7 @@ values are reached with `Values`.
 
 Note that `compat/libucl`'s `Len` returns a *string's byte length*, because
 that is what the C does. Both are right in their own package; nothing in a UCL
-document depends on the Go spelling, so the idiomatic one follows `len()` on a
+document depends on the Go spelling, so the Go-shaped one follows `len()` on a
 map or slice.
 
 ## Paths
@@ -748,7 +748,7 @@ exist:
   engine opens it, which does not exist yet either
 
 MessagePack, S-expressions and JSON Schema validation are not on the
-idiomatic surface. Whether they should be is an open question in `DESIGN.md`
+Go-shaped surface. Whether they should be is an open question in `DESIGN.md`
 rather than a settled no: the text formats shipped alone because adding a
 format later breaks nobody and withdrawing one would. They remain reachable
 through the lower-level entry points and `compat/libucl`.
@@ -767,7 +767,7 @@ import-path change:
 It is a separate Go module from the rest of goucl, so it has to be required
 explicitly — `go get github.com/derekmarcotte/goucl/compat/libucl` — and it
 carries its own version. The import path is the one above either way; the
-split exists so that programs using only the idiomatic API never pull in
+split exists so that programs using only the Go-shaped API never pull in
 this package's carried-over files. See the repository's NOTICE for why.
 
 > **This package is not under goucl's licence.** Four of its files come from
@@ -775,7 +775,7 @@ this package's carried-over files. See the repository's NOTICE for why.
 > archived and a request to its author for clarification went unanswered. The
 > root `LICENSE` does not extend here, and `compat/libucl/LICENSE` says so
 > explicitly. Treat it as a migration step with an open licence question, and
-> see [Moving on to the idiomatic API](#moving-on-to-the-idiomatic-api) for the
+> see [Moving on to the Go-shaped API](#moving-on-to-the-go-shaped-api) for the
 > way off it.
 
 Nothing else changes. The `libucl` struct tag, `Object.Decode`, `Emit`,
@@ -823,7 +823,7 @@ recorded beside it, and the behaviour it meant to cover is asserted by
 If you would rather run it, strip the comment markers. Everything else is
 byte-identical to upstream, which `tools/check-compat-identity.sh` verifies.
 
-### Moving on to the idiomatic API
+### Moving on to the Go-shaped API
 
 `compat/libucl` gets a program off the C toolchain without touching its code.
 It is worth taking the second step afterwards, for two reasons: the root module
@@ -895,7 +895,7 @@ Everything above is a mechanical swap. Repeated keys are not.
 A key written more than once is an implicit array rather than a replacement,
 and the two packages disagree about what to do with that. `Iterate` hands you
 the head of the chain, so `ToString()` quietly returns the value written
-first. The idiomatic accessors refuse it instead: a node holding several
+first. The Go-shaped accessors refuse it instead: a node holding several
 values yields `ok == false`, because picking one silently is how a
 configuration gets misread.
 

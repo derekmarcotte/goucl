@@ -1,4 +1,4 @@
-# Design: an idiomatic Go UCL library
+# Design: a Go-shaped UCL library
 
 **Status: built.** §5's restructure is done, §6's decisions are all settled
 and marked below, and §7's sketch is now code: `Marshal`, `Unmarshal`,

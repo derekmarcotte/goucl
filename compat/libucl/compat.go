@@ -52,7 +52,7 @@
 //
 // For that reason this package is a separate Go module, required explicitly
 // rather than pulled in with the rest of goucl. Programs using only the
-// idiomatic API never carry these files. The import path is unaffected.
+// Go-shaped API never carry these files. The import path is unaffected.
 //
 // This file is the shim that puts the API of the original cgo binding on top
 // of the pure-Go github.com/derekmarcotte/goucl/internal/core. It replaces

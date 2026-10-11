@@ -9,7 +9,7 @@ Three packages:
 
 | | |
 |---|---|
-| (root) | the idiomatic Go API — read a document, walk it, emit it |
+| (root) | the Go-shaped API — read a document, walk it, emit it |
 | `compat/libucl` | drop-in for `github.com/mitchellh/go-libucl`, package `libucl` |
 | `internal/core` | the C-mirror engine the other two are built on |
 

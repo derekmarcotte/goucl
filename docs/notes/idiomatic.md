@@ -1,4 +1,4 @@
-# The idiomatic layer
+# The Go-shaped layer
 
 Notes on the root package, `goucl` — what it is, what surprised us building
 it, and what was deliberately left out. `../../DESIGN.md` holds the decisions;

@@ -40,7 +40,7 @@ on it, rather than one to discover later.
 
 The module is kept separate from the rest of goucl precisely so that this
 decision is yours to make and nobody makes it by accident: programs that use
-only the idiomatic API never receive these files, because they are not in that
+only the Go-shaped API never receive these files, because they are not in that
 module and nothing in it depends on them.
 
 

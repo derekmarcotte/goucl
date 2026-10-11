@@ -17,7 +17,7 @@ The rule the entries follow: reproduce upstream bugs bug-for-bug, because
 callers and goldens depend on them, **except** where a bug produces a wrong
 answer or a crash. Four have been fixed here and reported upstream.
 
-[`../DESIGN.md`](../DESIGN.md) is the design of the idiomatic API and the
+[`../DESIGN.md`](../DESIGN.md) is the design of the Go-shaped API and the
 register of its decisions. It began as a forward-looking proposal carrying no
 authority over the code; it is now partly built against, and each of its
 decisions is marked settled or not. Where building something proved the

@@ -12,7 +12,7 @@ import (
 //
 // They do not hold their own list of what exists. They enumerate the engine's
 // values and demand this package account for every one, so adding a type to
-// core fails here rather than silently falling out of the idiomatic API.
+// core fails here rather than silently falling out of the Go-shaped API.
 
 // searchLimit is well past the engine's largest enumerator; the loops below
 // probe upward and let the engine say which values are real.
@@ -33,7 +33,7 @@ func TestKindCoversEveryCoreType(t *testing.T) {
 
 		k := kindOf(ct)
 		if k == KindInvalid {
-			t.Errorf("core.Type(%d) is %q but maps to KindInvalid: the idiomatic API cannot express it",
+			t.Errorf("core.Type(%d) is %q but maps to KindInvalid: the Go-shaped API cannot express it",
 				i, ct)
 			continue
 		}

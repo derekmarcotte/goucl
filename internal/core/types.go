@@ -5,7 +5,7 @@
 // own test suite ports across mechanically and behaviour can be diffed
 // against the C implementation. That fidelity is what the goldens measure,
 // so this package is the engine rather than the public surface: the
-// idiomatic API in the parent package and the drop-in in compat/libucl are
+// Go-shaped API in the parent package and the drop-in in compat/libucl are
 // both built on top of it.
 //
 // Behaviour is pinned against output captured from the C library; see

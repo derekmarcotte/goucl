@@ -15,7 +15,7 @@
 // This module is versioned independently of the one it requires, and the two
 // say different things. Its own API is frozen: it reproduces the API of the
 // cgo binding, so changing it would defeat the only reason it exists. The
-// main module is still v0 because the idiomatic API it offers may yet change.
+// main module is still v0 because the Go-shaped API it offers may yet change.
 // Depending on a v0 costs this module nothing, because the only thing it uses
 // from it is internal/core, which no consumer of either module can see.
 module github.com/derekmarcotte/goucl/compat/libucl

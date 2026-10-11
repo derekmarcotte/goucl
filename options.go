@@ -40,7 +40,7 @@ type encodeOptionFunc func(*encodeConfig)
 
 func (f encodeOptionFunc) applyEncodeOption(c *encodeConfig) { f(c) }
 
-// MacroFunc is a user-defined UCL macro, the idiomatic counterpart of the
+// MacroFunc is a user-defined UCL macro, the Go-shaped counterpart of the
 // engine's core.MacroHandler.
 //
 // data is the macro's raw argument text, with variables already expanded.
@@ -49,7 +49,7 @@ func (f encodeOptionFunc) applyEncodeOption(c *encodeConfig) { f(c) }
 //
 // DESIGN.md §2 requires that a macro be able to fail. The engine's handler
 // reports that as a bool; MacroFunc reports it as an error instead, which is
-// the idiomatic shape and lets a macro say what went wrong.
+// the shape Go expects and lets a macro say what went wrong.
 type MacroFunc func(data []byte, args *Node) error
 
 // nodeFromArgs wraps a macro's argument object as a Node, the same way
