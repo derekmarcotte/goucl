@@ -15,7 +15,9 @@ and the disagreement is a bug worth fixing in the loser.
 records a defect in the C and an explicit *replicate* or *diverge* decision.
 The rule the entries follow: reproduce upstream bugs bug-for-bug, because
 callers and goldens depend on them, **except** where a bug produces a wrong
-answer or a crash. Four have been fixed here and reported upstream.
+answer or a crash. Four have been fixed here. None has been reported
+upstream: this project does not contribute to libucl, and the fixes live as
+local patches on the reference checkout.
 
 [`../DESIGN.md`](../DESIGN.md) is the design of the Go-shaped API and the
 register of its decisions. It began as a forward-looking proposal carrying no

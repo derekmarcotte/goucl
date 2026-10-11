@@ -69,7 +69,8 @@ change.
 
 ## One caveat on the comparison
 
-The reference build carries the three fixes this port reported upstream, so
+The reference build carries the three fixes this port made to its libucl
+checkout, so
 these numbers compare against a *patched* C rather than against released
 0.9.4. That is the right baseline for correctness, since it is the build the
 goldens come from, and the fixes are small and not in any hot path -- but the

@@ -9,7 +9,7 @@ line by line. What was checked, and what it found.
 |---|---|---|
 | 1 | `TestBasicGoldens` *skips* a fixture/mode pair with no expectation file, so deleting a golden quietly reduced coverage | Fixed: `TestGoldenCoverage` asserts all 156 expectations present |
 | 2 | The parser, the component that reads untrusted input, was the only decoder with no fuzz target | Fixed: `FuzzParseString` |
-| 3 | **Panic** on a truncated `\u` escape — index out of range, a denial of service on any malformed config | Fixed, and reported upstream (`findings.md` #9) |
+| 3 | **Panic** on a truncated `\u` escape — index out of range, a denial of service on any malformed config | Fixed here (`findings.md` #9) |
 | 4 | `AddFd` filled its buffer with a single `Read`, which may return short: the rest of the document was dropped silently | Fixed: `io.ReadFull`, matching the include path |
 | 5 | The schema pattern cache was an unbounded package-level `sync.Map` keyed by pattern strings from the schema | Fixed: bounded at 1024 |
 | 6 | Two of the three recorded "out-of-bounds reads" in the C are provably in bounds | Corrected (`findings.md` #10) |

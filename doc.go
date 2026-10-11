@@ -55,7 +55,7 @@
 // duplicate-key merging, emitted bytes -- is treated as the language's
 // definition rather than as behaviour to improve, and surprising cases are
 // reproduced rather than corrected. Where the C has a defect that crashes or
-// returns a wrong answer, it is fixed and reported upstream; those few
+// returns a wrong answer, it is fixed here rather than reproduced; those few
 // divergences are listed in docs/findings.md.
 //
 // The engine underneath mirrors the C API one-to-one and is verified against

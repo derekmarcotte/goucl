@@ -45,7 +45,8 @@ and checks the exit status of only its first invocation.
 **Decision: DIVERGE — skip the macro, as documented.** Originally recorded as
 *replicate*, on the grounds that it was released 0.9.4 behaviour. Reversed: a
 flag that rejects every document containing a macro is useless to callers, and
-being bug-compatible with a bug we are fixing upstream is incoherent.
+being bug-compatible with a bug we are fixing on the reference checkout is
+incoherent.
 
 Combining the fix with `SAVE_COMMENTS` also required not recording the skipped
 macro. `macro_save` passed the macro body to `ucl_save_comment`, but that range
@@ -55,7 +56,7 @@ comment, and reparsing failed with `'invalid character in a key'`. A skipped
 macro is not a comment, so it is dropped. This cannot regress anyone: the path
 has never been reachable.
 
-Fixed upstream on branch `fix-disable-macro`, and adopted here.
+Fixed on the reference checkout's branch `fix-disable-macro`, and adopted here.
 `TestParserDisableMacroSkipsMacroLines` pins it, and the nine `*.nomacro.err`
 expectations became ordinary goldens.
 
@@ -247,12 +248,12 @@ replacements far longer than the text they replace did not overflow anything
 under ASAN.
 
 **Real — the truncated `\u` escape (finding #9).** Confirmed by reading the
-code and by differing output. Fixed upstream on branch
+code and by differing output. Fixed on the reference checkout's branch
 `fix-truncated-unicode-escape` with `tests/basic/utf_escape_trunc.in`.
 
 The bounding in the Go port stays regardless: it costs nothing, and in a
 bounds-checked language the same arithmetic is a panic rather than a wrong
-byte. But only one of these is worth an upstream report, and claiming three
+byte. But only one of these is a real defect, and claiming three
 would have been wrong.
 
 ### Unresolved: a possible leak of saved comments
@@ -295,7 +296,8 @@ survives when its values are scalars or objects.
 come from the C and because no caller has been shown to depend on either
 behaviour. It is a genuine defect by the rule this register follows — it
 produces a wrong answer rather than a surprising one — so it is a candidate
-for the same treatment as findings #2, #3 and #9: fix here, report upstream,
+for the same treatment as findings #2, #3 and #9: fix here, patch the
+reference checkout,
 regenerate the goldens from a reference build carrying the fix.
 
 Fixing it has a cost worth stating plainly: our JSON output would stop being
@@ -303,4 +305,4 @@ byte-identical to the C's for this input class, which is the property the
 golden corpus exists to prove. That trade wants deciding deliberately rather
 than in passing, so it is recorded and left alone.
 
-Not yet reduced to a minimal upstream patch.
+Not yet reduced to a minimal patch.

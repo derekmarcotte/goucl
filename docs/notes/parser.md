@@ -65,7 +65,8 @@ panic in Go.
 
 * **Real.** A truncated `\u` escape read a fourth hex digit from past the end
   of the value. In Go that is an index out of range, so it was a crash on any
-  input carrying one (`docs/findings.md` #9). Fixed here and upstream.
+  input carrying one (`docs/findings.md` #9). Fixed here and on the reference
+  checkout.
 * **Not a defect.** `p[-1] != '\\'` in `ucl_skip_comments` and
   `ucl_parse_macro_arguments` cannot read before the buffer: both sites are
   reached only after the bytes they look back at have been consumed. The Go
@@ -109,8 +110,8 @@ Kept because output depends on them; each is commented at its site.
   it is a genuine no-op. Both are pinned in `TestParserIncludes`.
 * `UCL_PARSER_DISABLE_MACRO` skips macros, which is what it is documented to
   do. Released libucl rejects them instead, because it never enters the state
-  holding its own skip path; this port takes the fix and so does upstream
-  branch `fix-disable-macro` (`docs/findings.md` #2).
+  holding its own skip path; this port takes the fix, as does the reference
+  checkout's branch `fix-disable-macro` (`docs/findings.md` #2).
 
 ## Not implemented
 

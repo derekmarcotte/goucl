@@ -60,7 +60,7 @@ validation, MessagePack read/write, and canonical S-expressions.
 Correctness is proven against the C implementation, not asserted:
 
 * `internal/core/testdata/basic/` holds libucl's own fixtures, copied
-  verbatim, plus two this project contributed back upstream.
+  verbatim, plus two written here alongside the reference-build fixes.
 * `tools/gen-goldens.sh` regenerates goldens from the compiled C library.
   Upstream diffs only the *config* emitter and sends the other five modes to
   /dev/null without checking their exit status; we pin all six against
@@ -75,9 +75,10 @@ Correctness is proven against the C implementation, not asserted:
 
 ### Regenerating goldens
 
-The reference build must carry the three fixes this project reported upstream,
-or the goldens will not match: without them libucl mis-parses a comment at the
-start of an array, rejects every document containing a macro under
+The reference build must carry the three fixes this project made to its own
+libucl checkout, or the goldens will not match: without them libucl mis-parses
+a comment at the start of an array, rejects every document containing a macro
+under
 `DISABLE_MACRO`, and reads past the value on a truncated `\u` escape. See
 `docs/findings.md` items 2, 3 and 9. The branches live in the sibling checkout:
 
@@ -89,7 +90,9 @@ cmake -B build . && cmake --build build
 cd ../goucl && ./tools/gen-goldens.sh
 ```
 
-Once those land upstream, plain `master` will do.
+Those branches are local to that checkout. They have not been sent upstream
+and are not going to be, so no released libucl carries them and plain `master`
+will not reproduce the goldens.
 
 ## Licence and attribution
 
