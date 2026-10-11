@@ -32,7 +32,11 @@ listed in docs/findings.md.
 ---------
 
     Upstream:  https://github.com/vstakhov/libucl
-    Version:   0.9.4 (commit 8b2bf4913cd9ad62cb06c943055bc7858b8abb15)
+    Version:   upstream HEAD adef4bb1e85eecac79bea8ec28f6cc4ac34063fb, which
+               is the 0.9.4 tag (058286f) plus one merge. The port follows
+               HEAD rather than the release: the S-expression tests and the
+               single-quote emitter fallback it reproduces exist only after
+               0.9.4.
     Licence:   BSD 2-clause
     Copyright: (c) 2013-2015, Vsevolod Stakhov <vsevolod@highsecure.ru>
                (c) 2015, Allan Jude <allanjude@freebsd.org>

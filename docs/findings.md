@@ -98,9 +98,9 @@ Comments everywhere else are well covered: at top level, before or after keys,
 and inside objects, they parse and re-emit correctly. 25 of 26 fixtures
 round-trip cleanly in save-comments mode.
 
-Confirmed present at upstream HEAD (adef4bb, tag 0.9.4) — `git fetch` shows no
-commits after our pin, so this is unfixed upstream, not something we are
-behind on.
+Confirmed present at upstream HEAD (adef4bb, which is one merge past the 0.9.4
+tag at 058286f) — `git fetch` shows no commits after our pin, so this is
+unfixed upstream, not something we are behind on.
 
 **Where it bites us:** no fixture's *input* contains an indented comment inside
 an array, so nothing hits this on the way in. `basic/9.in` reaches it only
