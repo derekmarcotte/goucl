@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/derekmarcotte/goucl/internal/core"
+	"go.marcottesoftware.ca/goucl/internal/core"
 )
 
 // ErrInvalidNode is returned when an operation is attempted on a nil Node or

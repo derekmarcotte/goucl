@@ -3,7 +3,7 @@ package goucl
 import (
 	"testing"
 
-	"github.com/derekmarcotte/goucl/internal/core"
+	"go.marcottesoftware.ca/goucl/internal/core"
 )
 
 // The engine is the source of truth. This package necessarily restates two of

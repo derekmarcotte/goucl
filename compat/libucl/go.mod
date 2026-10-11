@@ -6,7 +6,7 @@
 // file at the repository root.
 //
 // The import path is unchanged, so migrating call sites are unaffected: this
-// is still imported as github.com/derekmarcotte/goucl/compat/libucl.
+// is still imported as go.marcottesoftware.ca/goucl/compat/libucl.
 //
 // Development inside this repository resolves the requirement below against
 // the working tree, via the go.work at the repository root, so the pinned
@@ -18,8 +18,8 @@
 // main module is still v0 because the Go-shaped API it offers may yet change.
 // Depending on a v0 costs this module nothing, because the only thing it uses
 // from it is internal/core, which no consumer of either module can see.
-module github.com/derekmarcotte/goucl/compat/libucl
+module go.marcottesoftware.ca/goucl/compat/libucl
 
 go 1.23
 
-require github.com/derekmarcotte/goucl v0.1.0
+require go.marcottesoftware.ca/goucl v0.1.0

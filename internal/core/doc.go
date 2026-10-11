@@ -30,7 +30,7 @@
 // The package mirrors the C API one-to-one, including behaviour that looks
 // wrong, because behaviour a UCL document can observe is the language rather
 // than a defect to design around. It is internal: callers want the root
-// package github.com/derekmarcotte/goucl, or compat/libucl when migrating
+// package go.marcottesoftware.ca/goucl, or compat/libucl when migrating
 // from the cgo binding.
 //
 // The build configuration reproduced here is libucl without OpenSSL and

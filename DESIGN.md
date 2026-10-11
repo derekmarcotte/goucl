@@ -320,8 +320,12 @@ a forced upgrade. Both can be used in one program.
 
 ## 10. Open questions
 
-* **Settled: the module path is `github.com/derekmarcotte/goucl`.** The import
-  paths in §5 follow from it.
+* **Settled: the module path is `go.marcottesoftware.ca/goucl`.** The import
+  paths in §5 follow from it. It was `github.com/derekmarcotte/goucl` until
+  just before the first push: a module path can only be changed before
+  anything depends on it. The source stays on GitHub, which the domain points
+  at with a `go-import` meta tag. The cost is renewing the domain for as long
+  as the library matters.
 * **Settled: the minimum Go version is 1.23**, for `iter.Seq2`.
 * **Deferred, not settled: whether the schema validator, MessagePack and
   S-expressions join the idiomatic surface.** `Format` and `EncodeOption`

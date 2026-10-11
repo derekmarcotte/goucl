@@ -6,7 +6,7 @@
 // drop the C toolchain without changing their code. The API is identical and
 // the migration is an import-path swap:
 //
-//	import "github.com/derekmarcotte/goucl/compat/libucl"
+//	import "go.marcottesoftware.ca/goucl/compat/libucl"
 //
 // Existing call sites keep compiling, because the types, method sets and
 // numeric constants are the ones the binding exposed. That claim is tested
@@ -16,7 +16,7 @@
 // is broken upstream, with the evidence recorded beside it. Run
 // tools/check-compat-identity.sh to verify both.
 //
-// New code should prefer github.com/derekmarcotte/goucl, which offers the same
+// New code should prefer go.marcottesoftware.ca/goucl, which offers the same
 // engine behind an API written for Go rather than for C. This package exists
 // for migration and makes no attempt to be pleasant.
 //
@@ -46,7 +46,7 @@
 // repository's NOTICE before redistributing this package, and treat depending
 // on it as a decision rather than a default.
 //
-// Moving to github.com/derekmarcotte/goucl removes the question: that module
+// Moving to go.marcottesoftware.ca/goucl removes the question: that module
 // carries none of these files. USAGE.md works the conversion through, with the
 // API mapping and the one behavioural difference that matters.
 //
@@ -55,7 +55,7 @@
 // Go-shaped API never carry these files. The import path is unaffected.
 //
 // This file is the shim that puts the API of the original cgo binding on top
-// of the pure-Go github.com/derekmarcotte/goucl/internal/core. It replaces
+// of the pure-Go go.marcottesoftware.ca/goucl/internal/core. It replaces
 // the binding's parser.go, object.go, libucl.go and go-libucl.h, and with
 // them the dependency on the C libucl. Everything else in the package comes
 // from the binding, which is the point: the original test suite exercises the
@@ -77,7 +77,7 @@
 // returns an error, and ObjectIter.Close, which returns nothing.
 package libucl
 
-import "github.com/derekmarcotte/goucl/internal/core"
+import "go.marcottesoftware.ca/goucl/internal/core"
 
 // Object represents a single object within a configuration.
 type Object core.CompatObject

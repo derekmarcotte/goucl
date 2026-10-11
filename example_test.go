@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/derekmarcotte/goucl"
+	"go.marcottesoftware.ca/goucl"
 )
 
 // Parse a configuration and read a few values out of it.

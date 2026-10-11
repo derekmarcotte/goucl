@@ -8,8 +8,8 @@ use it.
 
 | You are | Import |
 |---|---|
-| writing new code | `github.com/derekmarcotte/goucl` |
-| replacing `github.com/mitchellh/go-libucl` | `github.com/derekmarcotte/goucl/compat/libucl` |
+| writing new code | `go.marcottesoftware.ca/goucl` |
+| replacing `github.com/mitchellh/go-libucl` | `go.marcottesoftware.ca/goucl/compat/libucl` |
 
 The two are independent and can be used in the same program. The root package
 is comma-ok accessors, range-over-func iteration and structured errors; it
@@ -32,7 +32,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/derekmarcotte/goucl"
+	"go.marcottesoftware.ca/goucl"
 )
 
 func main() {
@@ -761,11 +761,11 @@ import-path change:
 
 ```diff
 -import "github.com/mitchellh/go-libucl"
-+import "github.com/derekmarcotte/goucl/compat/libucl"
++import "go.marcottesoftware.ca/goucl/compat/libucl"
 ```
 
 It is a separate Go module from the rest of goucl, so it has to be required
-explicitly — `go get github.com/derekmarcotte/goucl/compat/libucl` — and it
+explicitly — `go get go.marcottesoftware.ca/goucl/compat/libucl` — and it
 carries its own version. The import path is the one above either way; the
 split exists so that programs using only the Go-shaped API never pull in
 this package's carried-over files. See the repository's NOTICE for why.

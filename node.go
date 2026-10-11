@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/derekmarcotte/goucl/internal/core"
+	"go.marcottesoftware.ca/goucl/internal/core"
 )
 
 // Kind is the type of a Node.

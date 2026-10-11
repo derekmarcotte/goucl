@@ -1,9 +1,15 @@
 # goucl — pure-Go UCL (Universal Configuration Language)
 
-`github.com/derekmarcotte/goucl` is a pure-Go implementation of
+`go.marcottesoftware.ca/goucl` is a pure-Go implementation of
 [libucl](https://github.com/vstakhov/libucl) v0.9.4, so dependents of the cgo
 binding [`github.com/mitchellh/go-libucl`](https://github.com/mitchellh/go-libucl)
 can drop the C dependency with an import-path swap.
+
+The source lives at
+[github.com/derekmarcotte/goucl](https://github.com/derekmarcotte/goucl); the
+import path is a domain this project controls so that the code can move hosts
+later without every dependant having to change its imports. `go get` resolves
+it the same way either path would.
 
 Three packages:
 

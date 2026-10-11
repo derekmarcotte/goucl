@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/derekmarcotte/goucl/internal/core"
+	"go.marcottesoftware.ca/goucl/internal/core"
 )
 
 // The engine is proven against the C by 168 goldens in six emitter modes. Its

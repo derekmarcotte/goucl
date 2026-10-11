@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/derekmarcotte/goucl/internal/core"
+	"go.marcottesoftware.ca/goucl/internal/core"
 )
 
 // Marshal returns the UCL encoding of v, in UCL's own configuration syntax.

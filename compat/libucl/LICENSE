@@ -50,7 +50,7 @@ The way out
 This module exists to get a working program off the C toolchain without a
 rewrite. It is a migration step, not a destination.
 
-The github.com/derekmarcotte/goucl module carries none of these files, is
+The go.marcottesoftware.ca/goucl module carries none of these files, is
 original work over a translation of libucl, and is distributed under the
 BSD 2-clause terms in the root LICENSE. Moving onto it removes the question
 entirely. USAGE.md works the conversion through end to end, with the API

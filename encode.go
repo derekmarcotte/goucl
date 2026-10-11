@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/derekmarcotte/goucl/internal/core"
+	"go.marcottesoftware.ca/goucl/internal/core"
 )
 
 // Format selects an output format.

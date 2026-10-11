@@ -3,7 +3,7 @@ package goucl
 import (
 	"fmt"
 
-	"github.com/derekmarcotte/goucl/internal/core"
+	"go.marcottesoftware.ca/goucl/internal/core"
 )
 
 // Option configures parsing and decoding: Parse, ParseString, ParseFile,

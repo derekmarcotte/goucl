@@ -4,7 +4,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/derekmarcotte/goucl/internal/core"
+	"go.marcottesoftware.ca/goucl/internal/core"
 )
 
 // parserFlags is what every entry point here parses with.

@@ -182,7 +182,7 @@ The shim now lives here, at `compat/libucl`, as part of the restructure into
 three packages. What changed and what did not:
 
 * `compat.go` is ours, so its import moved from `example.com/goucl` to
-  `github.com/derekmarcotte/goucl/internal/core`, and the `goucl.` qualifiers
+  `go.marcottesoftware.ca/goucl/internal/core`, and the `goucl.` qualifiers
   with it. Nothing else in it changed.
 * **Three of mitchellh's four files are byte-identical to `f9d0e55`, and the
   fourth differs only by the markers disabling one test.** That is the whole
