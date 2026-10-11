@@ -2,6 +2,11 @@ goucl is a translation of libucl and is distributed under libucl's licence,
 reproduced below. No additional copyright is asserted over the translation or
 over the Go-specific code in this module; see NOTICE for provenance.
 
+These terms cover the goucl module and nothing else in this repository. They
+do NOT cover compat/libucl, which is a separate module carrying files from
+github.com/mitchellh/go-libucl that state no licence; see
+compat/libucl/LICENSE before redistributing that package.
+
 ---
 
 Copyright (c) 2013-2015, Vsevolod Stakhov <vsevolod@highsecure.ru>

@@ -1,0 +1,60 @@
+compat/libucl is NOT distributed under goucl's licence
+======================================================
+
+The BSD 2-clause LICENSE at the root of this repository covers the goucl
+module. It does not cover this module, and must not be read as covering it.
+This module is distributed under whatever terms the original library is
+under — which is to say: none are stated, by anyone.
+
+
+Why there are no terms to state
+-------------------------------
+
+Four files here come from github.com/mitchellh/go-libucl, which states no
+licence at all: no LICENSE file, no per-file copyright headers, and no
+statement in its README. The repository is archived on GitHub with no
+instruction about reuse, and a request to its author asking for clarification
+went unanswered.
+
+    decoder.go ........ Mitchell Hashimoto, byte-identical to upstream
+    object_test.go .... Mitchell Hashimoto, byte-identical to upstream
+    parser_test.go .... Mitchell Hashimoto, byte-identical to upstream
+    decoder_test.go ... Mitchell Hashimoto, differing only by the markers
+                        that disable one test which is broken upstream
+
+No licence stated means all rights reserved by default. Attribution is credit,
+not permission, and nothing in this repository can grant what its author has
+not granted.
+
+compat.go and decoder_flaky_test.go are this project's own work and carry no
+such encumbrance. They are also useless on their own: decoder.go is the file
+that does the decoding.
+
+
+What this means if you depend on this module
+--------------------------------------------
+
+Redistributing this module means redistributing those four files under terms
+nobody has granted. That is a decision to make deliberately, before depending
+on it, rather than one to discover later.
+
+The module is kept separate from the rest of goucl precisely so that this
+decision is yours to make and nobody makes it by accident: programs that use
+only the idiomatic API never receive these files, because they are not in that
+module and nothing in it depends on them.
+
+
+The way out
+-----------
+
+This module exists to get a working program off the C toolchain without a
+rewrite. It is a migration step, not a destination.
+
+The github.com/derekmarcotte/goucl module carries none of these files, is
+original work over a translation of libucl, and is distributed under the
+BSD 2-clause terms in the root LICENSE. Moving onto it removes the question
+entirely. USAGE.md works the conversion through end to end, with the API
+mapping and the one behavioural difference that matters.
+
+See the NOTICE file at the repository root for full provenance of everything
+in this repository.

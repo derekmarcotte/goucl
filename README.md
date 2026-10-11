@@ -101,6 +101,12 @@ under `internal/core/testdata/` are copied verbatim from the libucl
 distribution.
 
 `compat/libucl` reproduces the API of Mitchell Hashimoto's
-github.com/mitchellh/go-libucl and carries four files from it. That repository
-states no licence, so the attribution in `NOTICE` is credit rather than a
-licence grant; read it before redistributing that package.
+github.com/mitchellh/go-libucl and carries four files from it. **That module is
+not under the licence above.** The repository it draws from states no licence,
+it is archived, and a request to its author for clarification went unanswered,
+so this project cannot place those files under terms of its own; the
+attribution in `NOTICE` is credit rather than a licence grant. Its terms are
+whatever the original library's are — unstated — as `compat/libucl/LICENSE`
+sets out. Read that before depending on or redistributing that package.
+`USAGE.md` shows how to move off it onto the root module, which carries none of
+those files.

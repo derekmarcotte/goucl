@@ -120,11 +120,20 @@ compat.go and decoder_flaky_test.go are this project's own.
 
     CAVEAT: the go-libucl repository carries no LICENSE file, no per-file
     copyright headers, and no licence statement in its README, and it is
-    archived on GitHub with no instruction about reuse. Attribution is
+    archived on GitHub with no instruction about reuse. A request to its
+    author asking for clarification went unanswered, so the question is
+    settled only in the sense that it will not be answered. Attribution is
     therefore given here as credit, and credit is not a licence grant. Anyone
     redistributing goucl with compat/libucl included should treat the
-    upstream-derived files above as unlicensed third-party code and resolve
-    that with the author before relying on them.
+    upstream-derived files above as unlicensed third-party code and decide
+    deliberately whether to carry them.
+
+    The BSD 2-clause terms in the root LICENSE cover the goucl module and do
+    not extend to compat/libucl. That module states its own position in
+    compat/libucl/LICENSE: its terms are whatever the original library's are,
+    which is to say unstated. It is deliberately not placed under this
+    project's licence, because this project cannot license files it does not
+    own.
 
     Of the four, only decoder.go is shipped code; the other three are the
     test suite that proves this package is a faithful drop-in. That split

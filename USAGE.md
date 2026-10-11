@@ -770,6 +770,14 @@ carries its own version. The import path is the one above either way; the
 split exists so that programs using only the idiomatic API never pull in
 this package's carried-over files. See the repository's NOTICE for why.
 
+> **This package is not under goucl's licence.** Four of its files come from
+> `github.com/mitchellh/go-libucl`, which states no licence; the repository is
+> archived and a request to its author for clarification went unanswered. The
+> root `LICENSE` does not extend here, and `compat/libucl/LICENSE` says so
+> explicitly. Treat it as a migration step with an open licence question, and
+> see [Moving on to the idiomatic API](#moving-on-to-the-idiomatic-api) for the
+> way off it.
+
 Nothing else changes. The `libucl` struct tag, `Object.Decode`, `Emit`,
 `Iterate`, the `ObjectType` and `Emitter` constants and the parser flags all
 keep their names, values and signatures.
@@ -814,6 +822,105 @@ recorded beside it, and the behaviour it meant to cover is asserted by
 
 If you would rather run it, strip the comment markers. Everything else is
 byte-identical to upstream, which `tools/check-compat-identity.sh` verifies.
+
+### Moving on to the idiomatic API
+
+`compat/libucl` gets a program off the C toolchain without touching its code.
+It is worth taking the second step afterwards, for two reasons: the root module
+carries none of the unlicensed upstream files, so the licence question
+disappears, and every `Close()` in your code goes with it.
+
+The two packages are independent and can be imported into the same program, so
+this can be done one file at a time rather than all at once.
+
+Mapping:
+
+| `compat/libucl` | `goucl` |
+|---|---|
+| `NewParser(0)` + `AddFile` + `Object()` | `ParseFile(path)` |
+| `NewParser(0)` + `AddString` + `Object()` | `ParseString(s)` |
+| `*libucl.Object` | `*goucl.Node` |
+| `o.Get("k")`, nil when absent | `o.Get("k")`, comma-ok — and it takes a dotted path |
+| `o.Iterate(true)` over an object | `for k, v := range o.All()` |
+| `o.Iterate(true)` over an array | `for e := range o.Elements()` |
+| `o.Type()`, `libucl.ObjectTypeX` | `o.Kind()`, `goucl.KindX` |
+| `o.ToString()`, `ToInt()`, `ToFloat()`, `ToBool()` | `o.String("")`, `Int("")`, `Float("")`, `Bool("")` — all comma-ok |
+| `o.Emit(libucl.EmitJSON)` → `string` | `o.Bytes(goucl.FormatJSON)` → `[]byte` |
+| `o.Ref()`, `o.Close()`, `i.Close()`, `p.Close()` | delete the call |
+
+A type check followed by a conversion collapses into one comma-ok read, which
+is most of the diff in practice:
+
+```go
+// before
+p := libucl.NewParser(0)
+defer p.Close()
+if err := p.AddFile(path); err != nil {
+	return err
+}
+obj := p.Object()
+defer obj.Close()
+
+i := obj.Iterate(true)
+defer i.Close()
+for c := i.Next(); c != nil; c = i.Next() {
+	defer c.Close()
+	if c.Type() != libucl.ObjectTypeString {
+		return fmt.Errorf("%s: want a string, got %v", c.Key(), c.Type())
+	}
+	use(c.Key(), c.ToString())
+}
+```
+
+```go
+// after
+doc, err := goucl.ParseFile(path)
+if err != nil {
+	return err
+}
+
+for key, v := range doc.All() {
+	s, ok := v.String("")
+	if !ok {
+		return fmt.Errorf("%s: want a string, got %v", key, v.Kind())
+	}
+	use(key, s)
+}
+```
+
+#### The one difference that will bite you
+
+Everything above is a mechanical swap. Repeated keys are not.
+
+A key written more than once is an implicit array rather than a replacement,
+and the two packages disagree about what to do with that. `Iterate` hands you
+the head of the chain, so `ToString()` quietly returns the value written
+first. The idiomatic accessors refuse it instead: a node holding several
+values yields `ok == false`, because picking one silently is how a
+configuration gets misread.
+
+```
+test = "a";
+test = "b";      // compat: ToString() == "a".  goucl: String("") is not ok.
+```
+
+So a straight swap turns a duplicated key from "first one wins" into a
+validation error — which may be what you want, but it is a change in what your
+configurations mean, not a refactor. To keep the old behaviour explicitly:
+
+```go
+// the first of the values a key holds, which is what Iterate gave you
+func firstValue(n *goucl.Node) *goucl.Node {
+	for v := range n.Values() {
+		return v
+	}
+	return n
+}
+```
+
+Reach for `Values()` whenever a key legitimately repeats; see
+[Repeated keys are lists](#repeated-keys-are-lists). `Kind()` is no help here —
+it reports the kind of the value, not how many there are.
 
 ## Where to look next
 

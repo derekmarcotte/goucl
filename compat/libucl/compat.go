@@ -32,9 +32,23 @@
 //
 // That repository states no licence: it carries no LICENSE file, no per-file
 // copyright headers and no licence statement in its README, and it is archived
-// with no instruction about reuse. The credit given here is therefore credit
-// and not a licence grant. See the NOTICE file at the repository root before
-// redistributing this package.
+// with no instruction about reuse. A request to its author asking for
+// clarification went unanswered. The credit given here is therefore credit and
+// not a licence grant.
+//
+// # Licence
+//
+// This package is NOT under goucl's BSD 2-clause licence. The root LICENSE
+// covers the goucl module and does not extend here, because this project
+// cannot license files it does not own. The terms for this package are
+// whatever the original library's are, which is to say unstated, and all
+// rights are reserved by default. Read compat/libucl/LICENSE and the
+// repository's NOTICE before redistributing this package, and treat depending
+// on it as a decision rather than a default.
+//
+// Moving to github.com/derekmarcotte/goucl removes the question: that module
+// carries none of these files. USAGE.md works the conversion through, with the
+// API mapping and the one behavioural difference that matters.
 //
 // For that reason this package is a separate Go module, required explicitly
 // rather than pulled in with the rest of goucl. Programs using only the
